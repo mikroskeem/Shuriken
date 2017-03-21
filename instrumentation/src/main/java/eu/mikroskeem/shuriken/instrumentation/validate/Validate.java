@@ -15,7 +15,6 @@ import java.util.Arrays;
 import java.util.stream.Stream;
 
 import static eu.mikroskeem.shuriken.common.Ensure.notNull;
-import static eu.mikroskeem.shuriken.reflect.wrappers.TypeWrapper.of;
 
 /**
  * Class validation tools
@@ -66,18 +65,41 @@ public class Validate {
         ClassWrapper<?> cw = Reflect.wrapClass(clazz);
         Stream.of(fields).forEach(fieldDescriptor -> {
             try {
-                Ensure.ensureCondition(
-                        cw.getField(fieldDescriptor.getFieldName(), fieldDescriptor.getFieldType()).isPresent(),
-                        NullPointerException.class,
-                        of(String.format("Field %s %s not found",
+                Ensure.ensurePresent(
+                        cw.getField(fieldDescriptor.getFieldName(), fieldDescriptor.getFieldType()),
+                        String.format("Field %s %s not found",
                                 fieldDescriptor.getFieldType(),
-                                fieldDescriptor.getFieldName()))
+                                fieldDescriptor.getFieldName())
                 );
             } catch (Exception e) {
                 throw new NullPointerException(e.getLocalizedMessage());
             }
         });
     }
+
+    /**
+     * Check fields availability in wrapped class agains info defined in
+     * {@link FieldDescriptor} objects
+     *
+     * @param cw Wrapped class to perform check on
+     * @param fields {@link FieldDescriptor} objects
+     */
+    @Contract("null, _ -> fail")
+    public static void checkFields(@NonNull ClassWrapper<?> cw, FieldDescriptor... fields){
+        Stream.of(fields).forEach(fieldDescriptor -> {
+            try {
+                Ensure.ensurePresent(
+                        cw.getField(fieldDescriptor.getFieldName(), fieldDescriptor.getFieldType()),
+                        String.format("Field %s %s not found",
+                                fieldDescriptor.getFieldType(),
+                                fieldDescriptor.getFieldName())
+                );
+            } catch (Exception e) {
+                throw new NullPointerException(e.getLocalizedMessage());
+            }
+        });
+    }
+
 
     /**
      * Check methods availability in class against info defined in
@@ -101,6 +123,18 @@ public class Validate {
     }
 
     /**
+     * Check methods availability in wrapped class against info defined in
+     * {@link MethodDescriptor} objects
+     *
+     * @param cw Wrapped class to perform check on
+     * @param methods {@link MethodDescriptor} objects
+     */
+    @Contract("null, _ -> fail")
+    public static void checkMethods(@NonNull ClassWrapper<?> cw, MethodDescriptor... methods) {
+        checkMethods(cw.getWrappedClass(), methods);
+    }
+
+    /**
      * Check constructors availability in class against info defined in
      * {@link ConstructorDescriptor} objects
      *
@@ -119,6 +153,18 @@ public class Validate {
                 throw new NullPointerException(e.getMessage());
             }
         });
+    }
+
+    /**
+     * Check constructors availability in wrapped class against info defined in
+     * {@link ConstructorDescriptor} objects
+     *
+     * @param cw Wrapped class to perform check on
+     * @param constructors {@link ConstructorDescriptor} objects
+     */
+    @Contract("null, _ -> fail")
+    public static void checkConstructors(@NonNull ClassWrapper<?> cw, ConstructorDescriptor... constructors){
+        checkConstructors(cw.getWrappedClass(), constructors);
     }
 
     /**
