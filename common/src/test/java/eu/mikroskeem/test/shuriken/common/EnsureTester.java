@@ -4,6 +4,8 @@ import eu.mikroskeem.shuriken.common.Ensure;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
 import static eu.mikroskeem.shuriken.reflect.wrappers.TypeWrapper.of;
 
 public class EnsureTester {
@@ -33,5 +35,19 @@ public class EnsureTester {
     public void testNotNull() throws Exception {
         String b = "woo";
         Ensure.notNull(b, "b shouldn't be null");
+    }
+
+    @Test
+    public void testOptional() throws Exception {
+        Optional<String> aOpt = Optional.of("kek");
+        Assertions.assertEquals("kek", Ensure.ensurePresent(aOpt, ""), "Optional should be present!");
+    }
+
+    @Test
+    public void testOptionalNotPresent() throws Exception {
+        Optional<String> aOpt = Optional.empty();
+        Assertions.assertThrows(NullPointerException.class, ()->{
+            Ensure.ensurePresent(aOpt, "");
+        });
     }
 }
