@@ -34,6 +34,7 @@ public class ClassWrapper<T> {
      */
     public ClassWrapper<T> construct(TypeWrapper... args) throws NoSuchMethodException,
             IllegalAccessException, InvocationTargetException, InstantiationException {
+        setClassInstance(null); // Simple test
         /* Convert TypeWrapper arguments */
         Class<?>[] tArgs = Stream.of(args).map(TypeWrapper::getType).collect(Collectors.toList()).toArray(new Class[0]);
         Object[] cArgs = Stream.of(args).map(TypeWrapper::getValue).collect(Collectors.toList()).toArray();
