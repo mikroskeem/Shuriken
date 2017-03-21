@@ -3,6 +3,7 @@ package eu.mikroskeem.test.shuriken.reflect;
 import eu.mikroskeem.shuriken.reflect.Reflect;
 import eu.mikroskeem.shuriken.reflect.wrappers.ClassWrapper;
 import eu.mikroskeem.shuriken.reflect.wrappers.FieldWrapper;
+import eu.mikroskeem.test.shuriken.reflect.classes.TestClassFive;
 import eu.mikroskeem.test.shuriken.reflect.classes.TestClassFour;
 import eu.mikroskeem.test.shuriken.reflect.classes.TestClassOne;
 import eu.mikroskeem.test.shuriken.reflect.classes.TestClassThree;
@@ -101,5 +102,16 @@ public class FieldReflectionTester {
         Assertions.assertEquals(-2D, actual[0]);
         Assertions.assertEquals(-2D, actual[1]);
         Assertions.assertEquals(-2D, actual[2]);
+    }
+
+    @Test
+    public void testFinalFieldWriting() throws Exception {
+        ClassWrapper<TestClassFive> cw = Reflect.wrapClass(TestClassFive.class).construct();
+
+        Optional<FieldWrapper<String>> fieldOpt = cw.getField("a", String.class);
+        Assertions.assertTrue(fieldOpt.isPresent(), "Field should be present!");
+
+        fieldOpt.get().write("kek");
+        Assertions.assertEquals("kek", fieldOpt.get().read());
     }
 }

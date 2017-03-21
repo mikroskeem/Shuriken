@@ -5,10 +5,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Contract;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
+import java.lang.reflect.*;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -89,7 +86,7 @@ public class ClassWrapper<T> {
 
         /* Set field accessible, if it is not already */
         if(!field.isAccessible()) field.setAccessible(true);
-        return Optional.of(ReflectiveFieldWrapper.of(classInstance, field, type));
+        return Optional.of(ReflectiveFieldWrapper.of(this, field, type));
     }
 
     /**
@@ -118,6 +115,11 @@ public class ClassWrapper<T> {
 
         /* Find method */
         Method method = wrappedClass.getDeclaredMethod(methodName, tArgs);
+
+        /* Do method modifier checks */
+        if(!Modifier.isStatic(method.getModifiers()) && getClassInstance() == null){
+            throw new IllegalStateException(String.format("'%s' requires class instance to be set!", method));
+        }
 
         /* Set method accessible, if it is not already */
         if(!method.isAccessible()) method.setAccessible(true);

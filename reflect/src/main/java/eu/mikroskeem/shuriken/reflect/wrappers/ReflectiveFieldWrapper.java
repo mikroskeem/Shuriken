@@ -1,11 +1,13 @@
 package eu.mikroskeem.shuriken.reflect.wrappers;
 
+import eu.mikroskeem.shuriken.reflect.Reflect;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Contract;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 
 /**
  * Reflective field wrapper
@@ -13,24 +15,24 @@ import java.lang.reflect.Field;
  * @author Mark Vainomaa
  * @version 0.0.1
  */
-@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class ReflectiveFieldWrapper<T> implements FieldWrapper<T> {
-    private final Object instance;
+    @Getter private final ClassWrapper<?> classWrapper;
     @Getter private final Field field;
     @Getter private final Class<T> type;
 
     /**
      * Field wrapper
      *
-     * @param instance Field instance (use null for static access)
+     * @param classWrapper {@link ClassWrapper} instance, where this field is from
      * @param field Backing field
      * @param type Field value type
      * @param <T> Type
      * @return Instance of FieldWrapper
      */
     @Contract("_, !null, !null -> !null")
-    public static <T> ReflectiveFieldWrapper<T> of(Object instance, Field field, Class<T> type){
-        return new ReflectiveFieldWrapper<>(instance, field, type);
+    public static <T> ReflectiveFieldWrapper<T> of(ClassWrapper<?> classWrapper, Field field, Class<T> type){
+        return new ReflectiveFieldWrapper<>(classWrapper, field, type);
     }
 
     /**
@@ -40,6 +42,9 @@ public class ReflectiveFieldWrapper<T> implements FieldWrapper<T> {
      * @throws IllegalAccessException If field isn't accessible
      */
     public T read() throws IllegalAccessException {
+        if(!Modifier.isStatic(field.getModifiers()) && classWrapper.getClassInstance() == null){
+            throw new IllegalAccessException(String.format("'%s' requires class instance to be set!", field));
+        }
         Class<?> fieldTypeClazz = field.getType();
         Class<T> returnType = type;
         if(fieldTypeClazz.isPrimitive()){
@@ -48,7 +53,7 @@ public class ReflectiveFieldWrapper<T> implements FieldWrapper<T> {
         if(type != Object.class){ // If type is object, don't assert
             assert type == fieldTypeClazz;
         }
-        return returnType.cast(field.get(instance));
+        return returnType.cast(field.get(classWrapper.getClassInstance()));
     }
 
     /**
@@ -58,14 +63,18 @@ public class ReflectiveFieldWrapper<T> implements FieldWrapper<T> {
      * @throws IllegalAccessException If field isn't accessible
      */
     public void write(T value) throws IllegalAccessException {
-        field.set(instance, value);
+        if(!Modifier.isStatic(field.getModifiers()) && classWrapper.getClassInstance() == null){
+            throw new IllegalAccessException(String.format("'%s' requires class instance to be set!", field));
+        }
+        Reflect.QuietReflect.THE_QUIET.hackFinalField(this);
+        field.set(classWrapper.getClassInstance(), value);
     }
 
     @Override
     public String toString() {
         return String.format(
-                "ReflectiveFieldWrapper{field=%s, type=%s, instance=%s}",
-                field, type, instance
+                "ReflectiveFieldWrapper{field=%s, type=%s, wrapper=%s}",
+                field, type, classWrapper
         );
     }
 }

@@ -2,16 +2,21 @@ package eu.mikroskeem.shuriken.reflect;
 
 import eu.mikroskeem.shuriken.reflect.wrappers.ClassWrapper;
 import eu.mikroskeem.shuriken.reflect.wrappers.FieldWrapper;
+import eu.mikroskeem.shuriken.reflect.wrappers.ReflectiveFieldWrapper;
 import eu.mikroskeem.shuriken.reflect.wrappers.TypeWrapper;
 import org.jetbrains.annotations.Contract;
 import sun.misc.Unsafe;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import java.lang.reflect.*;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static eu.mikroskeem.shuriken.reflect.Reflect.Callers.check;
 import static eu.mikroskeem.shuriken.reflect.Reflect.QuietReflect.THE_QUIET;
 
 /**
@@ -36,6 +41,7 @@ public class Reflect {
      * @param <T> Class type
      * @return ClassWrapper instance
      */
+    @Contract("_ -> !null")
     public static <T> ClassWrapper<T> wrapClass(Class<T> clazz){
         return ClassWrapper.of(clazz);
     }
@@ -101,12 +107,14 @@ public class Reflect {
     }
 
     /* Bad, real bad */
-    static class QuietReflect {
-        final static QuietReflect THE_QUIET = new QuietReflect();
+    public static class QuietReflect {
+        public final static QuietReflect THE_QUIET = new QuietReflect();
 
         /* You should never do this really */
         @Contract("null, _ -> fail")
-        <T> ClassWrapper<T> construct(ClassWrapper<T> classWrapper, TypeWrapper... args) {
+        @Callers.ensitive
+        public <T> ClassWrapper<T> construct(ClassWrapper<T> classWrapper, TypeWrapper... args) {
+            check(QuietReflect.class.getPackage());
             assert classWrapper != null;
             try {
                 Class<?>[] tArgs = Stream.of(args).map(TypeWrapper::getType).collect(Collectors.toList()).toArray(new Class[0]);
@@ -121,7 +129,9 @@ public class Reflect {
 
         /* Same applies to this */
         @Contract("null, null, _ -> fail")
-        <T,V> T getField(ClassWrapper<V> classWrapper, String fieldName, Class<T> type) {
+        @Callers.ensitive
+        public <T,V> T getField(ClassWrapper<V> classWrapper, String fieldName, Class<T> type) {
+            check(QuietReflect.class.getPackage());
             assert classWrapper != null;
             assert fieldName != null;
             try {
@@ -130,6 +140,62 @@ public class Reflect {
             }
             catch (Exception ignored){}
             return null;
+        }
+
+        @Contract("null, null, _, null -> fail")
+        @Callers.ensitive
+        public <T,V> void setField(ClassWrapper<V> classWrapper, String fieldName, Class<T> type, T value) {
+            check(QuietReflect.class.getPackage());
+            assert classWrapper != null;
+            assert fieldName != null;
+            assert value != null;
+            try {
+                Optional<FieldWrapper<T>> o = classWrapper.getField(fieldName, type);
+                if(o.isPresent())
+                    o.get().write(value);
+            }
+            catch (Exception ignored){}
+        }
+
+        @Callers.ensitive
+        public <T> void hackFinalField(FieldWrapper<T> fieldWrapper){
+            check(QuietReflect.class.getPackage());
+            if(fieldWrapper instanceof ReflectiveFieldWrapper) {
+                Field field = ((ReflectiveFieldWrapper) fieldWrapper).getField();
+                if (Modifier.isFinal(field.getModifiers())) {
+                    setField(Reflect.wrapInstance(field), "modifiers", int.class,
+                            field.getModifiers() & ~Modifier.FINAL);
+                }
+            }
+        }
+    }
+
+    public static class Callers {
+        @Retention(RetentionPolicy.RUNTIME)
+        @Target(ElementType.METHOD)
+        @interface ensitive {}
+
+        @Callers.ensitive
+        @SuppressWarnings("unchecked")
+        public static <T extends Class<T>> Class<T> getCaller(){
+            ClassWrapper<T> cw = null;
+            Class<T> clazz = null;
+            StackTraceElement[] stes = new Throwable().getStackTrace();
+            StackTraceElement ste = stes[3];
+            cw = (ClassWrapper<T>)Reflect.getClass(ste.getClassName()).orElse(null);
+            if(cw != null){
+                clazz = cw.getWrappedClass();
+            }
+            return clazz;
+        }
+
+        @Callers.ensitive
+        public static void check(Package p){
+            Method m = new Object(){}.getClass().getEnclosingMethod();
+            Class<?> caller = getCaller();
+            if(m.getAnnotation(ensitive.class) != null && !caller.getPackage().getName().startsWith(p.getName())) {
+                throw new IllegalAccessError("Caller sensitive");
+            }
         }
     }
 }

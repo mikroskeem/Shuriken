@@ -2,6 +2,8 @@ package eu.mikroskeem.test.shuriken.reflect;
 
 import eu.mikroskeem.shuriken.reflect.Reflect;
 import eu.mikroskeem.shuriken.reflect.wrappers.ClassWrapper;
+import eu.mikroskeem.shuriken.reflect.wrappers.FieldWrapper;
+import eu.mikroskeem.test.shuriken.reflect.classes.TestClassFive;
 import eu.mikroskeem.test.shuriken.reflect.classes.TestClassOne;
 import eu.mikroskeem.test.shuriken.reflect.classes.TestClassTwo;
 import org.junit.jupiter.api.Assertions;
@@ -54,5 +56,14 @@ public class ClassWrapperTester {
         TestClassOne testClassOne = new TestClassOne();
         ClassWrapper<TestClassOne> cw = Reflect.wrapInstance(testClassOne);
         Assertions.assertEquals(testClass, cw.getWrappedClass(), "Classes should match!");
+    }
+
+    @Test
+    public void testInstanceReadingWithoutInstance() throws Exception {
+        ClassWrapper<TestClassFive> testClass = Reflect.wrapClass(TestClassFive.class);
+        FieldWrapper<String> field = testClass.getField("b", String.class).get();
+        Assertions.assertThrows(IllegalAccessException.class, field::read);
+        testClass.construct();
+        Assertions.assertEquals("bar", field.read());
     }
 }
