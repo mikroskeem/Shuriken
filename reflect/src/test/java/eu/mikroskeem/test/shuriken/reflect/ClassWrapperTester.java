@@ -47,4 +47,12 @@ public class ClassWrapperTester {
         });
         Assertions.assertNull(cw.getClassInstance(), "Class instance should be null!");
     }
+
+    @Test
+    public void testInstanceWrapping() throws Exception {
+        Class<TestClassOne> testClass = TestClassOne.class;
+        TestClassOne testClassOne = new TestClassOne();
+        ClassWrapper<TestClassOne> cw = Reflect.wrapInstance(testClassOne);
+        Assertions.assertEquals(testClass, cw.getWrappedClass(), "Classes should match!");
+    }
 }
