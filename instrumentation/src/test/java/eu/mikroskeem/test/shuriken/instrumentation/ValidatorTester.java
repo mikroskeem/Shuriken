@@ -6,6 +6,7 @@ import eu.mikroskeem.shuriken.instrumentation.validate.ConstructorDescriptor;
 import eu.mikroskeem.shuriken.instrumentation.validate.MethodDescriptor;
 import eu.mikroskeem.shuriken.instrumentation.validate.Validate;
 import eu.mikroskeem.shuriken.reflect.Reflect;
+import eu.mikroskeem.shuriken.reflect.wrappers.ClassWrapper;
 import eu.mikroskeem.test.shuriken.instrumentation.testclasses.TestClass;
 import eu.mikroskeem.test.shuriken.instrumentation.testclasses.TestClass2;
 import org.junit.jupiter.api.Assertions;
@@ -62,9 +63,9 @@ public class ValidatorTester {
 
     @Test
     public void testConstructorValidatorWithReflectiveClasses() throws Exception {
-        Class<?> clazz = Reflect.getClass("java.lang.String").get().getWrappedClass();
+        ClassWrapper<?> clazz = Reflect.getClass("java.lang.String").get();
         Validate.checkConstructors(TestClass2.class,
-                ConstructorDescriptor.of(clazz, clazz)
+                ConstructorDescriptor.ofWrapped(clazz, clazz)
         );
     }
 

@@ -1,11 +1,12 @@
 package eu.mikroskeem.shuriken.instrumentation.validate;
 
-import eu.mikroskeem.shuriken.reflect.Reflect;
+import eu.mikroskeem.shuriken.reflect.wrappers.ClassWrapper;
 import lombok.Getter;
 import lombok.NonNull;
 import org.jetbrains.annotations.Contract;
 
-import static eu.mikroskeem.shuriken.common.Ensure.notNull;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Class descriptor
@@ -22,17 +23,25 @@ public class ClassDescriptor {
         this.extendingClasses = arguments;
     }
 
-    @Contract("_, _ -> !null; null, _ -> fail")
-    public static ClassDescriptor of(@NonNull Class<?> clazz, Class<?>... classes){
-        return new ClassDescriptor(clazz, classes);
+    @Contract("_, _ -> !null")
+    public static ClassDescriptor ofWrapped(@NonNull ClassWrapper<?> cw, ClassWrapper<?>... cws){
+        return ofWrapped(cw.getWrappedClass(), cws);
     }
 
-    @Contract("null, _ -> fail")
-    public static ClassDescriptor of(String clazzName, Class<?>... classes){
-        Class<?> clazz = notNull(
-                Reflect.getClass(clazzName).orElse(null),
-                "Failed to find class " + clazzName
-        ).getWrappedClass();
+    @Contract("_, _ -> !null")
+    public static ClassDescriptor ofWrapped(@NonNull ClassWrapper<?> cw, Class<?>... classes){
+        return of(cw.getWrappedClass(), classes);
+    }
+
+    @Contract("_, _ -> !null")
+    public static ClassDescriptor ofWrapped(@NonNull Class<?> clazz, ClassWrapper<?>... cws){
+        Class[] classes = Stream.of(cws).map(ClassWrapper::getWrappedClass)
+                .collect(Collectors.toList()).toArray(new Class[0]);
+        return of(clazz, classes);
+    }
+
+    @Contract("_, _ -> !null; null, _ -> fail")
+    public static ClassDescriptor of(@NonNull Class<?> clazz, Class<?>... classes){
         return new ClassDescriptor(clazz, classes);
     }
 }
