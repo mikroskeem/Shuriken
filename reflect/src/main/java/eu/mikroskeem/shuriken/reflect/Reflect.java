@@ -4,7 +4,6 @@ import eu.mikroskeem.shuriken.reflect.wrappers.ClassWrapper;
 import eu.mikroskeem.shuriken.reflect.wrappers.FieldWrapper;
 import eu.mikroskeem.shuriken.reflect.wrappers.TypeWrapper;
 import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.Nullable;
 import sun.misc.Unsafe;
 
 import java.lang.reflect.Constructor;
@@ -47,7 +46,6 @@ public class Reflect {
      * @param name Class name
      * @return Class object or empty, if class wasn't found
      */
-    @Nullable
     @Contract("null -> fail")
     public static Optional<ClassWrapper<?>> getClass(String name){
         assert name != null;
@@ -60,7 +58,6 @@ public class Reflect {
      * @param name Class name
      * @return Class object or empty, if class wasn't found
      */
-    @Nullable
     @Contract("null, null -> fail; null, _ -> fail; !null, null -> _")
     public static Optional<ClassWrapper<?>> getClass(String name, ClassLoader classLoader){
         assert name != null;
