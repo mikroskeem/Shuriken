@@ -48,7 +48,6 @@ public class Reflect {
      */
     @Contract("null -> fail")
     public static Optional<ClassWrapper<?>> getClass(String name){
-        assert name != null;
         return getClass(name, null);
     }
 
