@@ -61,8 +61,11 @@ public class Reflect {
     public static Optional<ClassWrapper<?>> getClass(String name, ClassLoader classLoader){
         assert name != null;
         try {
-            return Optional.of(ClassWrapper.of(Class.forName(name, true,
-                    classLoader!=null?classLoader:ClassLoader.getSystemClassLoader())));
+            if(classLoader != null){
+                return Optional.of(ClassWrapper.of(Class.forName(name, true, classLoader)));
+            } else {
+                return Optional.of(ClassWrapper.of(Class.forName(name)));
+            }
         } catch (ClassNotFoundException e){
             return Optional.empty();
         }
