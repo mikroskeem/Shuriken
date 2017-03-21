@@ -137,4 +137,13 @@ public class ClassWrapper<T> {
             return null;
         }
     }
+
+    @Override
+    public String toString() {
+        return String.format(
+                "ClassWrapper<%s>{instance=%s}",
+                wrappedClass.toString(),
+                classInstance.toString()
+        );
+    }
 }

@@ -60,4 +60,12 @@ public class ReflectiveFieldWrapper<T> implements FieldWrapper<T> {
     public void write(T value) throws IllegalAccessException {
         field.set(instance, value);
     }
+
+    @Override
+    public String toString() {
+        return String.format(
+                "ReflectiveFieldWrapper{field=%s, type=%s, instance=%s}",
+                field, type, instance
+        );
+    }
 }

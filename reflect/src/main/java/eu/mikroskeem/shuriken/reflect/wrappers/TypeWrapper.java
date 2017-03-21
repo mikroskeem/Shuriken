@@ -30,4 +30,9 @@ public class TypeWrapper {
     public static TypeWrapper of(Class<?> type, Object value){
         return new TypeWrapper(type, value);
     }
+
+    @Override
+    public String toString() {
+        return String.format("TypeWrapper{type=%s, value=%s}", type, value);
+    }
 }
