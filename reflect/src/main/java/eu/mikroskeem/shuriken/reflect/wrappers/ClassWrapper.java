@@ -86,15 +86,6 @@ public class ClassWrapper<T> {
         /* Get field */
         Field field = wrappedClass.getDeclaredField(fieldName);
 
-        /* Check field type */
-        /* Check return type */
-        Class<?> fieldTypeClazz = field.getType();
-        if(fieldTypeClazz.isPrimitive()){
-            type = PrimitiveType.getBoxed(fieldTypeClazz);
-        } else {
-            assert type == field.getType();
-        }
-
         /* Set field accessible, if it is not already */
         if(!field.isAccessible()) field.setAccessible(true);
         return Optional.of(ReflectiveFieldWrapper.of(classInstance, field, type));

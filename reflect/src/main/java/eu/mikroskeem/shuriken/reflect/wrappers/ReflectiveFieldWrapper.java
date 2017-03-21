@@ -39,9 +39,16 @@ public class ReflectiveFieldWrapper<T> implements FieldWrapper<T> {
      * @return Field value
      * @throws IllegalAccessException If field isn't accessible
      */
-    @SuppressWarnings("unchecked")
     public T read() throws IllegalAccessException {
-        return type.cast(field.get(instance));
+        Class<?> fieldTypeClazz = field.getType();
+        Class<T> returnType = type;
+        if(fieldTypeClazz.isPrimitive()){
+            returnType = PrimitiveType.getBoxed(fieldTypeClazz);
+        }
+        if(type != Object.class){ // If type is object, don't assert
+            assert type == fieldTypeClazz;
+        }
+        return returnType.cast(field.get(instance));
     }
 
     /**

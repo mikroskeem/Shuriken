@@ -3,6 +3,7 @@ package eu.mikroskeem.test.shuriken.reflect;
 import eu.mikroskeem.shuriken.reflect.Reflect;
 import eu.mikroskeem.shuriken.reflect.wrappers.ClassWrapper;
 import eu.mikroskeem.shuriken.reflect.wrappers.FieldWrapper;
+import eu.mikroskeem.test.shuriken.reflect.classes.TestClassFour;
 import eu.mikroskeem.test.shuriken.reflect.classes.TestClassOne;
 import eu.mikroskeem.test.shuriken.reflect.classes.TestClassThree;
 import org.junit.jupiter.api.Assertions;
@@ -66,5 +67,39 @@ public class FieldReflectionTester {
         field.write(expected);
         char actual = field.read();
         Assertions.assertEquals(expected, actual);
+    }
+
+    /*
+     TODO: proper primitive array support?
+     */
+
+    @Test
+    public <C> void testClassPrimitiveArrayFieldReading() throws Exception {
+        ClassWrapper<TestClassFour> cw = Reflect.wrapClass(TestClassFour.class);
+
+        Class<C> type = (Class<C>)double[].class;
+        Optional<FieldWrapper<C>> fieldOptinal = cw.getField("a", type);
+        Assertions.assertTrue(fieldOptinal.isPresent());
+        FieldWrapper<C> field = fieldOptinal.get();
+        double[] actual = (double[]) field.read();
+        Assertions.assertEquals(-2D, actual[0]);
+        Assertions.assertEquals(-2D, actual[1]);
+        Assertions.assertEquals(-2D, actual[2]);
+    }
+
+    @Test
+    public <C> void testClassPrimitiveArrayFieldWriting() throws Exception {
+        ClassWrapper<TestClassFour> cw = Reflect.wrapClass(TestClassFour.class);
+
+        Class<C> type = (Class<C>)double[].class;
+        Optional<FieldWrapper<C>> fieldOptinal = cw.getField("a", type);
+        Assertions.assertTrue(fieldOptinal.isPresent());
+        FieldWrapper<C> field = fieldOptinal.get();
+        double[] expected = new double[]{-2, -2, -2};
+        field.write((C)expected);
+        double[] actual = (double[]) field.read();
+        Assertions.assertEquals(-2D, actual[0]);
+        Assertions.assertEquals(-2D, actual[1]);
+        Assertions.assertEquals(-2D, actual[2]);
     }
 }
