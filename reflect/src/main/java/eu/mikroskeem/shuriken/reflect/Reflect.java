@@ -41,6 +41,18 @@ public class Reflect {
     }
 
     /**
+     * Wrap class instance into {@link ClassWrapper} instance
+     *
+     * @param instance Instance
+     * @param <T> Class type
+     * @return ClassWrapper instance
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> ClassWrapper<T> wrapInstance(T instance) {
+        return wrapClass((Class<T>)instance.getClass()).setClassInstance(instance);
+    }
+
+    /**
      * Get {@link Class} by name (like <pre>eu.mikroskeem.reflect.Reflect</pre>)
      *
      * @param name Class name
