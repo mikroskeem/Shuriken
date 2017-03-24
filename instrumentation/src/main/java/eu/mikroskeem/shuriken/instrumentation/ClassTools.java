@@ -9,8 +9,8 @@ import static org.objectweb.asm.Opcodes.*;
 
 public class ClassTools {
     /**
-     * Unqualify class name<br/>
-     * In other words, <pre>foo.bar.baz</pre> -> <pre>foo/bar/baz</pre>
+     * Unqualify class name <br>
+     * In other words, <pre>foo.bar.baz</pre> -&gt; <pre>foo/bar/baz</pre>
      *
      * @param className Class name
      * @return Unqualified class name
