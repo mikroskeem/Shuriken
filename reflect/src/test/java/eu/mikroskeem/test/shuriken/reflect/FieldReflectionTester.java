@@ -3,13 +3,12 @@ package eu.mikroskeem.test.shuriken.reflect;
 import eu.mikroskeem.shuriken.reflect.Reflect;
 import eu.mikroskeem.shuriken.reflect.wrappers.ClassWrapper;
 import eu.mikroskeem.shuriken.reflect.wrappers.FieldWrapper;
-import eu.mikroskeem.test.shuriken.reflect.classes.TestClassFive;
-import eu.mikroskeem.test.shuriken.reflect.classes.TestClassFour;
-import eu.mikroskeem.test.shuriken.reflect.classes.TestClassOne;
-import eu.mikroskeem.test.shuriken.reflect.classes.TestClassThree;
+import eu.mikroskeem.test.shuriken.reflect.classes.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.lang.annotation.Annotation;
+import java.util.List;
 import java.util.Optional;
 
 public class FieldReflectionTester {
@@ -113,5 +112,46 @@ public class FieldReflectionTester {
 
         fieldOpt.get().write("kek");
         Assertions.assertEquals("kek", fieldOpt.get().read());
+    }
+
+    @Test
+    public void testIsFieldStatic() throws Exception {
+        ClassWrapper<TestClassFour> cw = Reflect.wrapClass(TestClassFour.class);
+        boolean isStatic = cw.getField("a", double[].class).get().isStatic();
+        Assertions.assertTrue(isStatic);
+    }
+
+    @Test
+    public void testFieldListing() throws Exception {
+        ClassWrapper<TestClassFive> cw = Reflect.wrapClass(TestClassFive.class);
+        List<FieldWrapper<?>> fields = cw.getFields();
+        Assertions.assertTrue(fields.size() == 2);
+        Assertions.assertTrue(fields.get(0).getType() == String.class);
+        Assertions.assertTrue(fields.get(1).getType() == String.class);
+    }
+
+    @Test
+    public void testAnnotationGetting() throws Exception {
+        ClassWrapper<TestClassSix> cw = Reflect.wrapClass(TestClassSix.class);
+        FieldWrapper<String> field = cw.getField("a", String.class).get();
+        Assertions.assertTrue(field.getAnnotation(Deprecated.class).isPresent());
+    }
+
+    @Test
+    public void testAnnotationListing() throws Exception {
+        ClassWrapper<TestClassSix> cw = Reflect.wrapClass(TestClassSix.class);
+        FieldWrapper<String> field = cw.getField("a", String.class).get();
+        List<? extends Annotation> annotations = field.getAnnotations();
+        /*
+         * Comparing annotation classes directly doesn't seem to be a good idea, because
+         * you'll get stuff like this, if you print them out:
+         *     class com.sun.proxy.$Proxy9
+         *     class com.sun.proxy.$Proxy10
+         * Well TIL I guess
+         */
+        Assertions.assertTrue(Deprecated.class.isAssignableFrom(annotations.get(0).getClass()));
+        Assertions.assertTrue(TestClassSix.Test1.class.isAssignableFrom(annotations.get(1).getClass()));
+        Assertions.assertTrue(TestClassSix.Test2.class.isAssignableFrom(annotations.get(2).getClass()));
+        Assertions.assertTrue(TestClassSix.Test3.class.isAssignableFrom(annotations.get(3).getClass()));
     }
 }

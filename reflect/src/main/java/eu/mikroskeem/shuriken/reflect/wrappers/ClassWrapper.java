@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Contract;
 
 import java.lang.reflect.*;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -87,6 +88,17 @@ public class ClassWrapper<T> {
         /* Set field accessible, if it is not already */
         if(!field.isAccessible()) field.setAccessible(true);
         return Optional.of(ReflectiveFieldWrapper.of(this, field, type));
+    }
+
+    /**
+     * Get all available fields in class
+     *
+     * @return List of fields
+     */
+    public List<FieldWrapper<?>> getFields(){
+        return Stream.of(wrappedClass.getDeclaredFields())
+                .map(field -> ReflectiveFieldWrapper.of(this, field, field.getType()))
+                .collect(Collectors.toList());
     }
 
     /**

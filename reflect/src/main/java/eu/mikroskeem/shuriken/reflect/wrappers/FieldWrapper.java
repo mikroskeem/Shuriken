@@ -1,5 +1,9 @@
 package eu.mikroskeem.shuriken.reflect.wrappers;
 
+import java.lang.annotation.Annotation;
+import java.util.List;
+import java.util.Optional;
+
 /**
  * Field wrapper interface
  *
@@ -23,4 +27,34 @@ public interface FieldWrapper<T> {
      * @throws IllegalAccessException if field writing fails
      */
     void write(T value) throws IllegalAccessException;
+
+    /**
+     * Get field type
+     *
+     * @return Field type
+     */
+    Class<T> getType();
+
+    /**
+     * If field is static
+     *
+     * @return true if field is static, false otherwise
+     */
+    boolean isStatic();
+
+    /**
+     * Get field annotation
+     *
+     * @param annotation Annotation class
+     * @param <A> Annotation type
+     * @return Annotation wrapped into Optional. You know what to do
+     */
+    <A extends Annotation> Optional<A> getAnnotation(Class<A> annotation);
+
+    /**
+     * Get all field annotations
+     *
+     * @return List of field annotations
+     */
+    List<? extends Annotation> getAnnotations();
 }
