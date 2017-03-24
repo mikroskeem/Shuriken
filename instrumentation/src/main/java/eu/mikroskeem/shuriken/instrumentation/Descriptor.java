@@ -2,6 +2,7 @@ package eu.mikroskeem.shuriken.instrumentation;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+import org.jetbrains.annotations.Contract;
 import org.objectweb.asm.Type;
 
 /**
@@ -13,13 +14,25 @@ import org.objectweb.asm.Type;
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class Descriptor {
     private String accepts = "";
-    private String returns = "";
+    private String returns = "V";
     private final String finalString = "(%s)%s";
 
+    /**
+     * Get new descriptor builder instance
+     *
+     * @return {@link Descriptor} instance
+     */
+    @Contract(" -> !null")
     public static Descriptor newDescriptor(){
         return new Descriptor();
     }
 
+    /**
+     * Build method accepts part
+     *
+     * @param arguments Types what method accepts
+     * @return this {@link Descriptor} instance
+     */
     public Descriptor accepts(Class<?>... arguments){
         StringBuilder builder = new StringBuilder();
         for (Class<?> argument : arguments) {
@@ -29,6 +42,12 @@ public class Descriptor {
         return this;
     }
 
+    /**
+     * Build method returns part (default is primitive {@link Void})
+     *
+     * @param arguments Types what method accepts
+     * @return this {@link Descriptor} instance
+     */
     public Descriptor returns(Class<?>... arguments){
         StringBuilder builder = new StringBuilder();
         for (Class<?> argument : arguments) {
@@ -38,6 +57,11 @@ public class Descriptor {
         return this;
     }
 
+    /**
+     * Builds descriptor
+     *
+     * @return Descriptor string
+     */
     @Override
     public String toString(){
         return String.format(finalString, accepts, returns);
