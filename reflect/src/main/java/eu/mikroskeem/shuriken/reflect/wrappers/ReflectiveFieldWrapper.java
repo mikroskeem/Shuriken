@@ -6,8 +6,12 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Contract;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * Reflective field wrapper
@@ -42,7 +46,7 @@ public class ReflectiveFieldWrapper<T> implements FieldWrapper<T> {
      * @throws IllegalAccessException If field isn't accessible
      */
     public T read() throws IllegalAccessException {
-        if(!Modifier.isStatic(field.getModifiers()) && classWrapper.getClassInstance() == null){
+        if(!isStatic() && classWrapper.getClassInstance() == null){
             throw new IllegalAccessException(String.format("'%s' requires class instance to be set!", field));
         }
         Class<?> fieldTypeClazz = field.getType();
@@ -63,11 +67,35 @@ public class ReflectiveFieldWrapper<T> implements FieldWrapper<T> {
      * @throws IllegalAccessException If field isn't accessible
      */
     public void write(T value) throws IllegalAccessException {
-        if(!Modifier.isStatic(field.getModifiers()) && classWrapper.getClassInstance() == null){
+        if(!isStatic() && classWrapper.getClassInstance() == null){
             throw new IllegalAccessException(String.format("'%s' requires class instance to be set!", field));
         }
         Reflect.QuietReflect.THE_QUIET.hackFinalField(this);
         field.set(classWrapper.getClassInstance(), value);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isStatic() {
+        return Modifier.isStatic(field.getModifiers());
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public <A extends Annotation> Optional<A> getAnnotation(Class<A> annotation) {
+        return Optional.ofNullable(field.getAnnotation(annotation));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<? extends Annotation> getAnnotations() {
+        return Arrays.asList(field.getAnnotations());
     }
 
     @Override
