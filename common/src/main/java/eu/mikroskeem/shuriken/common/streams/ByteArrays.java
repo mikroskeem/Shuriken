@@ -1,5 +1,6 @@
 package eu.mikroskeem.shuriken.common.streams;
 
+import eu.mikroskeem.shuriken.common.SneakyThrow;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,6 +35,7 @@ public class ByteArrays {
                 output.write(buffer, 0, length);
             return output.toByteArray();
         } catch (IOException e){
+            SneakyThrow.throwException(e);
             return null;
         } finally {
             try {
