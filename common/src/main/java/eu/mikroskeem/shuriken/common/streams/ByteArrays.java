@@ -9,6 +9,12 @@ import java.io.InputStream;
 
 import static eu.mikroskeem.shuriken.common.Ensure.notNull;
 
+/**
+ * Bytearray tools
+ *
+ * @author Mark Vainomaa
+ * @version 0.0.1
+ */
 public class ByteArrays {
     /**
      * Convert an {@link InputStream} to byte array

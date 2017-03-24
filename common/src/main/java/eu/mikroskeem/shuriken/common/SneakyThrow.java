@@ -2,7 +2,15 @@ package eu.mikroskeem.shuriken.common;
 
 import org.jetbrains.annotations.Contract;
 
+/**
+ * SneakyThrows
+ */
 public class SneakyThrow {
+    /**
+     * Good old SneakyThrows! Throws checked exceptions everywhere you want
+     *
+     * @param t Throwable
+     */
     @Contract("_ -> fail")
     public static void throwException(Throwable t) {
         throw SneakyThrow.<RuntimeException>_throwException(t);

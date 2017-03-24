@@ -13,9 +13,19 @@ import static eu.mikroskeem.shuriken.common.SneakyThrow.throwException;
 import static eu.mikroskeem.shuriken.reflect.wrappers.TypeWrapper.of;
 
 /**
- * Ensure
+ * Ensure conditions
+ *
+ * @author Mark Vainomaa
+ * @version 0.0.1
  */
 public class Ensure {
+    /**
+     * Ensure that condition is true
+     *
+     * @param condition Condition
+     * @param exception Exception what will be thrown, if condition isn't true
+     * @param args Exception arguments
+     */
     public static void ensureCondition(boolean condition, Class<? extends Exception> exception, TypeWrapper... args){
         if(!condition){
             try {
@@ -26,12 +36,28 @@ public class Ensure {
         }
     }
 
+    /**
+     * Check if reference is not null
+     *
+     * @param ref Object reference
+     * @param errorMessage NullPointerException message
+     * @param <T> Reference type
+     * @return Passed reference
+     */
     @Contract("null, _ -> fail; !null, _ -> !null")
     public static <T> T notNull(T ref, @Nullable String errorMessage) {
         ensureCondition(ref != null, NullPointerException.class, of(""+errorMessage));
         return ref;
     }
 
+    /**
+     * Ensure that {@link Optional} value is present
+     *
+     * @param optional Optional to check
+     * @param errorMessage NullPointerException message
+     * @param <T> Value type wrapped inside {@link Optional}
+     * @return Optional value
+     */
     @NotNull
     @Contract("null, _ -> fail")
     public static <T> T ensurePresent(@NonNull Optional<T> optional, @Nullable String errorMessage){
