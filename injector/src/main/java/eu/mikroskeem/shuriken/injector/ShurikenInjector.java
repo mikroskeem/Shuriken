@@ -18,13 +18,13 @@ public class ShurikenInjector implements Injector {
      * Create injector out of {@link eu.mikroskeem.shuriken.injector.Binder.Builder} implementation. <br>
      * You can either use Java 8 lambdas or implement interface directly
      * <pre>
-     * ShurikenInjector.createInjector(binder -> {
+     * ShurikenInjector.createInjector(binder -&gt; {
      *      binder.bind(InterfaceA.class).to(ImplementationB.class);
      * });
      * </pre>
      *
-     * @param builder
-     * @return
+     * @param builder {@link eu.mikroskeem.shuriken.injector.Binder.Builder} implementation
+     * @return {@link Injector} instance, in this case {@link ShurikenInjector}
      */
     public static Injector createInjector(Binder.Builder builder){
         Binder binder = new Binder();
