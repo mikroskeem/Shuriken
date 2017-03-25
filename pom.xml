@@ -12,6 +12,7 @@
         <module>reflect</module>
         <module>common</module>
         <module>instrumentation</module>
+        <module>injector</module>
     </modules>
 
     <name>Shuriken</name>
