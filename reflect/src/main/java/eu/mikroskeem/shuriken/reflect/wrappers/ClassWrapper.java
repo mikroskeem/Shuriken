@@ -97,6 +97,7 @@ public class ClassWrapper<T> {
      */
     public List<FieldWrapper<?>> getFields(){
         return Stream.of(wrappedClass.getDeclaredFields())
+                .map(field -> { if(!field.isAccessible()) field.setAccessible(true); return field; })
                 .map(field -> ReflectiveFieldWrapper.of(this, field, field.getType()))
                 .collect(Collectors.toList());
     }
