@@ -87,7 +87,7 @@ public class ClassWrapper<T> {
 
         /* Set field accessible, if it is not already */
         if(!field.isAccessible()) field.setAccessible(true);
-        return Optional.of(ReflectiveFieldWrapper.of(this, field, type));
+        return Optional.of(MethodHandleFieldWrapper.of(this, field, type));
     }
 
     /**
@@ -98,7 +98,7 @@ public class ClassWrapper<T> {
     public List<FieldWrapper<?>> getFields(){
         return Stream.of(wrappedClass.getDeclaredFields())
                 .map(field -> { if(!field.isAccessible()) field.setAccessible(true); return field; })
-                .map(field -> ReflectiveFieldWrapper.of(this, field, field.getType()))
+                .map(field -> MethodHandleFieldWrapper.of(this, field, field.getType()))
                 .collect(Collectors.toList());
     }
 

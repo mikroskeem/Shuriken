@@ -1,6 +1,9 @@
 package eu.mikroskeem.shuriken.reflect.wrappers;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,11 +39,20 @@ public interface FieldWrapper<T> {
     Class<T> getType();
 
     /**
+     * Get backing field
+     *
+     * @return Field instance
+     */
+    Field getField();
+
+    /**
      * If field is static
      *
      * @return true if field is static, false otherwise
      */
-    boolean isStatic();
+    default boolean isStatic() {
+        return Modifier.isStatic(getField().getModifiers());
+    }
 
     /**
      * Get field annotation
@@ -49,12 +61,16 @@ public interface FieldWrapper<T> {
      * @param <A> Annotation type
      * @return Annotation wrapped into Optional. You know what to do
      */
-    <A extends Annotation> Optional<A> getAnnotation(Class<A> annotation);
+    default <A extends Annotation> Optional<A> getAnnotation(Class<A> annotation) {
+        return Optional.ofNullable(getField().getAnnotation(annotation));
+    }
 
     /**
      * Get all field annotations
      *
      * @return List of field annotations
      */
-    List<? extends Annotation> getAnnotations();
+    default List<? extends Annotation> getAnnotations() {
+        return Arrays.asList(getField().getAnnotations());
+    }
 }
