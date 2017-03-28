@@ -159,7 +159,7 @@ public class ClassWrapper<T> {
         return String.format(
                 "ClassWrapper<%s>{instance=%s}",
                 wrappedClass.toString(),
-                classInstance.toString()
+                classInstance != null? classInstance.toString() : "null"
         );
     }
 }
