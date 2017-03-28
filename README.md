@@ -22,3 +22,12 @@ Contains useful instrumentation related utilities, like:
 ### Reflect
 Package: `eu.mikroskeem.shuriken.reflect`  
 Awesome reflection library, which is more convenient to use than vanilla reflection. Retains type-safety (OOP like a boss lol) and uses Optional
+
+### Injector
+Package: `eu.mikroskeem.shuriken.injector`  
+Simple `javax.inject`-based injector. Not fully compatible with it, but works fine
+
+### Classloader
+Package: `eu.mikroskeem.shuriken.classloader`  
+Classloader which is able to load classes compressed with [Brotli](https://en.wikipedia.org/wiki/Brotli).  
+See [this](https://git.mikroskeem.eu/mikroskeem/ShurikenMavenPlugin) for Maven plugin and more information.
