@@ -13,6 +13,7 @@
         <module>common</module>
         <module>instrumentation</module>
         <module>injector</module>
+        <module>classloader</module>
     </modules>
 
     <name>Shuriken</name>

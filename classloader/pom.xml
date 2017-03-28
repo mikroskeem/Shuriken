@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>shuriken</artifactId>
+        <groupId>eu.mikroskeem</groupId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <name>ShurikenClassloader</name>
+    <packaging>jar</packaging>
+    <artifactId>shuriken.classloader</artifactId>
+
+    <repositories>
+        <repository>
+            <id>bintray-nitram509-jbrotli</id>
+            <name>bintray</name>
+            <url>http://dl.bintray.com/nitram509/jbrotli</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <!-- Common -->
+        <dependency>
+            <groupId>eu.mikroskeem</groupId>
+            <artifactId>shuriken.common</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+
+        <!-- Brotli library -->
+        <dependency>
+            <groupId>org.meteogroup.jbrotli</groupId>
+            <artifactId>jbrotli</artifactId>
+            <version>0.5.0</version>
+            <scope>compile</scope>
+        </dependency>
+
+        <!-- Instrumentation (for test) -->
+        <dependency>
+            <groupId>eu.mikroskeem</groupId>
+            <artifactId>shuriken.instrumentation</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>
