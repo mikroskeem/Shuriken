@@ -1,3 +1,4 @@
+![Tryhard logo](https://nightsnack.cf/assets/shuriken/logo-w-background-256x256.png) 
 # Shuriken
 
 The Java utilities collection.  
