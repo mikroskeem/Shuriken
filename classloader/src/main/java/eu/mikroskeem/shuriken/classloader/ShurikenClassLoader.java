@@ -18,7 +18,7 @@ import java.util.Map;
  * @author Mark Vainomaa
  * @version 0.0.1
  */
-public final class ShurikenClassLoader extends URLClassLoader {
+public class ShurikenClassLoader extends URLClassLoader {
     static {
         BrotliLibraryLoader.loadBrotli();
     }
