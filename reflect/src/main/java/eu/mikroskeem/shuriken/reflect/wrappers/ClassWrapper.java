@@ -36,7 +36,7 @@ public class ClassWrapper<T> {
         /* Convert TypeWrapper arguments */
         Class<?>[] tArgs = Stream.of(args).map(TypeWrapper::getType).collect(Collectors.toList()).toArray(new Class[0]);
         Object[] cArgs = Stream.of(args).map(TypeWrapper::getValue).collect(Collectors.toList()).toArray();
-        Constructor<T> constructor = getWrappedClass().getConstructor(tArgs);
+        Constructor<T> constructor = getWrappedClass().getDeclaredConstructor(tArgs);
         /* Make constructor accessible, if it isn't already */
         if(!constructor.isAccessible()) constructor.setAccessible(true);
         setClassInstance(constructor.newInstance(cArgs));
