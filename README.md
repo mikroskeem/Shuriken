@@ -1,6 +1,8 @@
 ![Tryhard logo](https://nightsnack.cf/assets/shuriken/logo-w-background-256x256.png) 
 # Shuriken
 
+[![Build Status](https://travis-ci.org/mikroskeem/Shuriken.svg?branch=master)](https://travis-ci.org/mikroskeem/Shuriken)
+
 The Java utilities collection.  
 See wiki for code samples
 
