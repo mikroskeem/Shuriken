@@ -23,11 +23,13 @@ public class ShurikenClassLoader extends URLClassLoader {
         BrotliLibraryLoader.loadBrotli();
     }
     private final Map<String, Class<?>> uncompressedClasses = new HashMap<>();
-    private final ClassLoader parentLoader;
+
+    public ShurikenClassLoader(URL[] urls) {
+        super(urls);
+    }
 
     public ShurikenClassLoader(URL[] urls, ClassLoader parent){
         super(urls, parent);
-        this.parentLoader = parent;
     }
 
     @Override
