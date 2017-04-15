@@ -88,7 +88,7 @@ public class ClassWrapper<T> {
         Field field;
         do {
             field = Arrays.stream(cls.getDeclaredFields())
-                    .filter(f -> fieldName.equals(f.getName()) && f.getType() == type)
+                    .filter(f -> fieldName.equals(f.getName()) && (type == Object.class || f.getType() == type))
                     .findFirst().orElse(null);
         } while (field == null && (cls = cls.getSuperclass()) != null);
         if(field == null) throw new NoSuchFieldException(fieldName);
@@ -135,12 +135,31 @@ public class ClassWrapper<T> {
         Object[] mArgs = Stream.of(args).map(TypeWrapper::getValue).collect(Collectors.toList()).toArray();
 
         /* Find method */
-        /* Get field */
         Class<?> cls = wrappedClass;
         Method method;
+        final Class<V> _returnType = returnType;
         do {
             method = Arrays.stream(cls.getDeclaredMethods())
-                    .filter(m -> methodName.equals(m.getName()) && Arrays.equals(m.getParameterTypes(), tArgs))
+                    .filter(m -> {
+                        if(methodName.equals(m.getName())) {
+                            if(Arrays.equals(m.getParameterTypes(), tArgs)){
+                                if(m.getReturnType() != Object.class) {
+                                    Class<?> theReturn = _returnType;
+                                    Class<?> theMethodReturn = m.getReturnType();
+                                    if(theReturn.isPrimitive()) {
+                                        theReturn = PrimitiveType.getBoxed(theReturn);
+                                    }
+                                    if(theMethodReturn.isPrimitive()) {
+                                        theMethodReturn = PrimitiveType.getBoxed(theMethodReturn);
+                                    }
+                                    return theReturn == theMethodReturn;
+                                } else {
+                                    return true;
+                                }
+                            }
+                        }
+                        return false;
+                    })
                     .findFirst().orElse(null);
         } while (method == null && (cls = cls.getSuperclass()) != null);
         if(method == null) throw new NoSuchMethodException(methodName);

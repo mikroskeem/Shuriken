@@ -154,4 +154,13 @@ public class FieldReflectionTester {
         Assertions.assertTrue(TestClassSix.Test2.class.isAssignableFrom(annotations.get(2).getClass()));
         Assertions.assertTrue(TestClassSix.Test3.class.isAssignableFrom(annotations.get(3).getClass()));
     }
+
+    @Test
+    public void testUnknownObjectReflection() throws Exception {
+        ClassWrapper<TestClassFive> cw = Reflect.wrapClass(TestClassFive.class).construct();
+        FieldWrapper<Object> field = cw.getField("a", Object.class).get();
+
+        Assertions.assertEquals(Object.class, field.getType());
+        Assertions.assertEquals("foo", field.read());
+    }
 }
