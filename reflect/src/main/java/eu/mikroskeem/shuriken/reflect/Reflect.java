@@ -11,9 +11,7 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
+import java.lang.reflect.*;
 import java.util.Optional;
 
 import static eu.mikroskeem.shuriken.reflect.Reflect.Callers.check;
@@ -132,6 +130,31 @@ public class Reflect {
             Optional<FieldWrapper<T>> o = classWrapper.getField(fieldName, type);
             if(o.isPresent()) return o.get().read();
             return null;
+        }
+
+        @Contract("null, null, _, null -> fail")
+        @Callers.ensitive
+        public <T,V> void setField(ClassWrapper<V> classWrapper, String fieldName, Class<T> type, T value) {
+            check(QuietReflect.class.getPackage());
+            assert classWrapper != null;
+            assert fieldName != null;
+            assert value != null;
+            try {
+                Optional<FieldWrapper<T>> o = classWrapper.getField(fieldName, type);
+                if(o.isPresent())
+                    o.get().write(value);
+            }
+            catch (Exception ignored){}
+        }
+
+        @Callers.ensitive
+        public <T> void hackFinalField(FieldWrapper<T> fieldWrapper){
+            check(QuietReflect.class.getPackage());
+            Field field = fieldWrapper.getField();
+            if (Modifier.isFinal(field.getModifiers())) {
+                setField(Reflect.wrapInstance(field), "modifiers", int.class,
+                        field.getModifiers() & ~Modifier.FINAL);
+            }
         }
     }
 

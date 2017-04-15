@@ -9,6 +9,8 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 
+import static eu.mikroskeem.shuriken.reflect.Reflect.QuietReflect.THE_QUIET;
+
 /**
  * {@link MethodHandle} based field wrapper
  *
@@ -28,6 +30,7 @@ public class MethodHandleFieldWrapper<T> implements FieldWrapper<T> {
         this.classWrapper = classWrapper;
         this.field = field;
         this.type = type;
+        THE_QUIET.hackFinalField(this);
         MethodHandles.Lookup lookup = MethodHandles.lookup();
         MethodType getterType;
         MethodType setterType;

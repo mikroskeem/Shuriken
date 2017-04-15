@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Contract;
 
 import java.lang.reflect.*;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -83,7 +84,14 @@ public class ClassWrapper<T> {
         assert fieldName != null;
 
         /* Get field */
-        Field field = wrappedClass.getDeclaredField(fieldName);
+        Class<?> cls = wrappedClass;
+        Field field;
+        do {
+            field = Arrays.stream(cls.getDeclaredFields())
+                    .filter(f -> fieldName.equals(f.getName()) && f.getType() == type)
+                    .findFirst().orElse(null);
+        } while (field == null && (cls = cls.getSuperclass()) != null);
+        if(field == null) throw new NoSuchFieldException(fieldName);
 
         /* Set field accessible, if it is not already */
         if(!field.isAccessible()) field.setAccessible(true);
@@ -127,7 +135,15 @@ public class ClassWrapper<T> {
         Object[] mArgs = Stream.of(args).map(TypeWrapper::getValue).collect(Collectors.toList()).toArray();
 
         /* Find method */
-        Method method = wrappedClass.getDeclaredMethod(methodName, tArgs);
+        /* Get field */
+        Class<?> cls = wrappedClass;
+        Method method;
+        do {
+            method = Arrays.stream(cls.getDeclaredMethods())
+                    .filter(m -> methodName.equals(m.getName()) && Arrays.equals(m.getParameterTypes(), tArgs))
+                    .findFirst().orElse(null);
+        } while (method == null && (cls = cls.getSuperclass()) != null);
+        if(method == null) throw new NoSuchMethodException(methodName);
 
         /* Do method modifier checks */
         if(!Modifier.isStatic(method.getModifiers()) && getClassInstance() == null){
