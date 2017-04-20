@@ -75,11 +75,10 @@ public class ClassWrapper<T> {
      * @param fieldName Field's name
      * @param type Field's type class
      * @param <V> Field's type
-     * @return {@link FieldWrapper} object
-     * @throws NoSuchFieldException if field wasn't found
+     * @return {@link FieldWrapper} object or empty, if field wasn't found
      */
     @Contract("null, null -> fail")
-    public <V> Optional<FieldWrapper<V>> getField(String fieldName, Class<V> type) throws NoSuchFieldException {
+    public <V> Optional<FieldWrapper<V>> getField(String fieldName, Class<V> type) {
         /* Check arguments */
         assert fieldName != null;
 
@@ -91,7 +90,7 @@ public class ClassWrapper<T> {
                     .filter(f -> fieldName.equals(f.getName()) && (type == Object.class || f.getType() == type))
                     .findFirst().orElse(null);
         } while (field == null && (cls = cls.getSuperclass()) != null);
-        if(field == null) throw new NoSuchFieldException(fieldName);
+        if(field == null) return Optional.empty();
 
         /* Set field accessible, if it is not already */
         if(!field.isAccessible()) field.setAccessible(true);
