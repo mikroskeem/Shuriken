@@ -17,19 +17,19 @@ import java.util.Optional;
 public interface FieldWrapper<T> {
     /**
      * Read value from field
+     * Throws {@link IllegalAccessException} if field reading fails
      *
      * @return Field value
-     * @throws IllegalAccessException if field reading fails
      */
-    T read() throws IllegalAccessException;
+    T read();
 
     /**
      * Write value to field
+     * Throws {@link IllegalAccessException} if field reading fails
      *
      * @param value Field new value
-     * @throws IllegalAccessException if field writing fails
      */
-    void write(T value) throws IllegalAccessException;
+    void write(T value);
 
     /**
      * Get field type

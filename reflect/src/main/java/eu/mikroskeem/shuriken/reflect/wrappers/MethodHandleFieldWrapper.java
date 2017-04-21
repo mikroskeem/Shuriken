@@ -61,15 +61,15 @@ public class MethodHandleFieldWrapper<T> implements FieldWrapper<T> {
 
     /**
      * Read field
+     * Throws {@link IllegalAccessException} If field isn't accessible or class instance is not set
+     *                                       (only if field is instance field)
      *
      * @return  Field value
-     * @throws IllegalAccessException If field isn't accessible or class instance is not set
-     *                                (only if field is instance field)
      */
     @Override
     @SneakyThrows
     @SuppressWarnings("unchecked")
-    public T read() throws IllegalAccessException {
+    public T read() {
         if(isStatic()) {
             return (T) getter.invoke();
         } else {
@@ -82,14 +82,14 @@ public class MethodHandleFieldWrapper<T> implements FieldWrapper<T> {
 
     /**
      * Write field
+     * Throws {@link IllegalAccessException} If field isn't accessible or class instance is not set
+     *                                       (only if field is instance field)
      *
      * @param value Field value
-     * @throws IllegalAccessException If field isn't accessible or class instance is not set
-     *                                (only if field is instance field)
      */
     @Override
     @SneakyThrows
-    public void write(T value) throws IllegalAccessException {
+    public void write(T value) {
         if(isStatic()) {
             setter.invoke(value);
         } else {
