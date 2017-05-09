@@ -73,12 +73,4 @@ public interface FieldWrapper<T> {
     default List<? extends Annotation> getAnnotations() {
         return Arrays.asList(getField().getAnnotations());
     }
-
-    /**
-     * Write null
-     */
-    default void writeNull() {
-        if(getField().getType().isPrimitive()) throw new IllegalStateException("Primitive fields can't be set to null!");
-        write(null);
-    }
 }
