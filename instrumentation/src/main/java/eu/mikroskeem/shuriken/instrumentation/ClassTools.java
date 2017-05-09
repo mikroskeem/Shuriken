@@ -51,7 +51,7 @@ public class ClassTools {
      *
      * @param classWriter ClassWriter instance
      * @param superClass Super class (use {@link Object} for non-extending classes
-     *                   (or explictly extending Object, which is redurant anyway)
+     *                   (or explictly extending Object, which is redundant anyway)
      */
     public static void generateSimpleSuperConstructor(ClassWriter classWriter, Class<?> superClass){
         MethodVisitor mv = classWriter.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
