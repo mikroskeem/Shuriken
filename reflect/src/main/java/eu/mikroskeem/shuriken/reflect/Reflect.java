@@ -97,8 +97,7 @@ public class Reflect {
      * @see Constructor#newInstance(Object...) for exceptions
      */
     @Contract("null, _ -> fail")
-    public static <T> ClassWrapper<T> construct(ClassWrapper<T> classWrapper, TypeWrapper... args) throws NoSuchMethodException,
-            IllegalAccessException, InvocationTargetException, InstantiationException {
+    public static <T> ClassWrapper<T> construct(ClassWrapper<T> classWrapper, TypeWrapper... args) {
         assert classWrapper != null;
         classWrapper.construct(args);
         return classWrapper;
@@ -165,16 +164,12 @@ public class Reflect {
 
         @Callers.ensitive
         @SuppressWarnings("unchecked")
-        public static <T extends Class<T>> Class<T> getCaller(){
-            ClassWrapper<T> cw = null;
-            Class<T> clazz = null;
+        public static <T> Class<T> getCaller(){
+            Class[] clazz = new Class[] { null };
             StackTraceElement[] stes = new Throwable().getStackTrace();
             StackTraceElement ste = stes[3];
-            cw = (ClassWrapper<T>)Reflect.getClass(ste.getClassName()).orElse(null);
-            if(cw != null){
-                clazz = cw.getWrappedClass();
-            }
-            return clazz;
+            Reflect.getClass(ste.getClassName()).ifPresent(cw -> clazz[0] = cw.getWrappedClass());
+            return clazz[0];
         }
 
         @Callers.ensitive

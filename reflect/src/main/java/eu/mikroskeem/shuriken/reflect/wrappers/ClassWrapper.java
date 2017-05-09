@@ -3,6 +3,7 @@ package eu.mikroskeem.shuriken.reflect.wrappers;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import org.jetbrains.annotations.Contract;
 
 import java.lang.reflect.*;
@@ -31,8 +32,8 @@ public class ClassWrapper<T> {
      * @return this {@link ClassWrapper} instance (for chaining)
      * @see Constructor#newInstance(Object...) for exceptions
      */
-    public ClassWrapper<T> construct(TypeWrapper... args) throws NoSuchMethodException,
-            IllegalAccessException, InvocationTargetException, InstantiationException {
+    @SneakyThrows(Exception.class)
+    public ClassWrapper<T> construct(TypeWrapper... args) {
         setClassInstance(null); // Simple test
         /* Convert TypeWrapper arguments */
         Class<?>[] tArgs = Stream.of(args).map(TypeWrapper::getType).collect(Collectors.toList()).toArray(new Class[0]);
@@ -117,14 +118,12 @@ public class ClassWrapper<T> {
      * @param args Method's args (pass empty array/no args if there are no args)
      * @param <V> Method's return type
      * @return Method return value
-     * @throws NoSuchMethodException if method wasn't found
-     * @throws InvocationTargetException if invocation didn't succeed
-     * @throws IllegalAccessException if reflection cannot be done
+     * @see Method#invoke(Object, Object...) for exceptions
      */
     @Contract("null, null, _ -> fail")
     @SuppressWarnings("unchecked")
-    public <V> V invokeMethod(String methodName, Class<V> returnType, TypeWrapper... args) throws NoSuchMethodException,
-            InvocationTargetException, IllegalAccessException {
+    @SneakyThrows(Exception.class)
+    public <V> V invokeMethod(String methodName, Class<V> returnType, TypeWrapper... args) {
         /* Check arguments */
         assert methodName != null;
         assert returnType != null;
