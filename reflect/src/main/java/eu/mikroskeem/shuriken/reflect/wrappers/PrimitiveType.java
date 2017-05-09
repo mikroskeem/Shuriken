@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Primitive type map
@@ -57,5 +58,21 @@ public enum PrimitiveType {
                 return (Class<V>) value.getPrimitiveClass();
         }
         throw new UnsupportedOperationException("Invalid boxed class: " + boxedClass.getName());
+    }
+
+    /**
+     * Ensure using always boxed class
+     *
+     * @param anyClass Type
+     * @return Boxed type
+     */
+    @Contract("null -> fail")
+    public static Class<?> ensureBoxed(@NotNull Class<?> anyClass) {
+        if(anyClass.isPrimitive()) {
+            return getBoxed(anyClass);
+        } else {
+            // Sleep > performance. TODO
+            return getBoxed(getUnboxed(anyClass));
+        }
     }
 }

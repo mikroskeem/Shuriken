@@ -21,13 +21,14 @@ public class TypeWrapper {
         this.value = value;
     }
 
-    @Contract("_ -> !null")
+    @Contract("null -> fail")
     public static TypeWrapper of(Object value){
         return new TypeWrapper(value);
     }
 
-    @Contract("_, _ -> !null")
+    @Contract("!null, _ -> !null; null, _ -> fail")
     public static TypeWrapper of(Class<?> type, Object value){
+        if(type == null) throw new IllegalStateException("Type must not be null");
         return new TypeWrapper(type, value);
     }
 
