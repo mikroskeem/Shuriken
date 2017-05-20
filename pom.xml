@@ -45,7 +45,7 @@
         </repository>
     </repositories>
 
-    <!-- Deployement -->
+    <!-- Deployment -->
     <distributionManagement>
         <snapshotRepository>
             <id>mikroskeem-repo</id>
