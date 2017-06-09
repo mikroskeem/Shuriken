@@ -3,6 +3,7 @@ package eu.mikroskeem.shuriken.reflect.wrappers;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -57,6 +58,17 @@ public class MethodHandleFieldWrapper<T> implements FieldWrapper<T> {
     @Contract("_, !null, !null -> !null")
     public static <T> MethodHandleFieldWrapper<T> of(ClassWrapper<?> classWrapper, Field field, Class<T> type) {
         return new MethodHandleFieldWrapper<>(classWrapper, field, type);
+    }
+
+    /**
+     * Gets field name
+     *
+     * @return field name
+     */
+    @Override
+    @NotNull
+    public String getName() {
+        return field.getName();
     }
 
     /**

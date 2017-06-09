@@ -16,7 +16,13 @@ import java.util.Optional;
  */
 public interface FieldWrapper<T> {
     /**
-     * Read value from field
+     * Gets field name
+     * @return field name
+     */
+    String getName();
+
+    /**
+     * Reads value from field
      * Throws {@link IllegalAccessException} if field reading fails
      *
      * @return Field value
@@ -24,7 +30,7 @@ public interface FieldWrapper<T> {
     T read();
 
     /**
-     * Write value to field
+     * Writes value to field
      * Throws {@link IllegalAccessException} if field reading fails
      *
      * @param value Field new value
@@ -32,14 +38,14 @@ public interface FieldWrapper<T> {
     void write(T value);
 
     /**
-     * Get field type
+     * Gets field type
      *
      * @return Field type
      */
     Class<T> getType();
 
     /**
-     * Get backing field
+     * Gets backing field
      *
      * @return Field instance
      */
@@ -55,7 +61,7 @@ public interface FieldWrapper<T> {
     }
 
     /**
-     * Get field annotation
+     * Gets field annotation
      *
      * @param annotation Annotation class
      * @param <A> Annotation type
@@ -66,7 +72,7 @@ public interface FieldWrapper<T> {
     }
 
     /**
-     * Get all field annotations
+     * Gets all field annotations
      *
      * @return List of field annotations
      */
