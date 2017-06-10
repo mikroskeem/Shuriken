@@ -58,6 +58,7 @@ public class Ensure {
      * @param <T> Value type wrapped inside {@link Optional}
      * @return Optional value
      */
+    @SuppressWarnings({"ConstantConditions", "OptionalUsedAsFieldOrParameterType"})
     @NotNull
     @Contract("null, _ -> fail")
     public static <T> T ensurePresent(@NonNull Optional<T> optional, @Nullable String errorMessage){
