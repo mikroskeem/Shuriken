@@ -37,6 +37,16 @@ public class Ensure {
     }
 
     /**
+     * Throws {@link IllegalStateException} if condition is not true
+     *
+     * @param condition Condition to assert
+     * @param text Message in {@link IllegalStateException}
+     */
+    public static void ensureCondition(boolean condition, String text) {
+        if(!condition) throw new IllegalStateException(text);
+    }
+
+    /**
      * Check if reference is not null
      *
      * @param ref Object reference
