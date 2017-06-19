@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.*;
 import java.util.Arrays;
@@ -65,8 +66,9 @@ public class ClassWrapper<T> {
      * @param <T> Class type
      * @return Wrapped class
      */
+    @NotNull
     @Contract("_ -> !null")
-    public static <T> ClassWrapper<T> of(Class<T> clazz){
+    public static <T> ClassWrapper<T> of(Class<T> clazz) {
         return new ClassWrapper<>(clazz);
     }
 
@@ -103,7 +105,7 @@ public class ClassWrapper<T> {
      *
      * @return List of fields
      */
-    public List<FieldWrapper<?>> getFields(){
+    public List<FieldWrapper<?>> getFields() {
         return Stream.of(wrappedClass.getDeclaredFields())
                 .map(field -> { if(!field.isAccessible()) field.setAccessible(true); return field; })
                 .map(field -> MethodHandleFieldWrapper.of(this, field, field.getType()))
@@ -140,7 +142,7 @@ public class ClassWrapper<T> {
             method = Arrays.stream(cls.getDeclaredMethods())
                     .filter(m -> {
                         if(methodName.equals(m.getName())) {
-                            if(Arrays.equals(m.getParameterTypes(), tArgs)){
+                            if(Arrays.equals(m.getParameterTypes(), tArgs)) {
                                 if(m.getReturnType() != Object.class) {
                                     Class<?> theReturn = _returnType;
                                     Class<?> theMethodReturn = m.getReturnType();
@@ -163,7 +165,7 @@ public class ClassWrapper<T> {
         if(method == null) throw new NoSuchMethodException(methodName);
 
         /* Do method modifier checks */
-        if(!Modifier.isStatic(method.getModifiers()) && getClassInstance() == null){
+        if(!Modifier.isStatic(method.getModifiers()) && getClassInstance() == null) {
             throw new IllegalStateException(String.format("'%s' requires class instance to be set!", method));
         }
 
@@ -172,7 +174,7 @@ public class ClassWrapper<T> {
 
         /* Check return type */
         Class<?> returnTypeClazz = method.getReturnType();
-        if(returnTypeClazz.isPrimitive()){
+        if(returnTypeClazz.isPrimitive()) {
             returnType = PrimitiveType.getBoxed(returnTypeClazz);
         } else {
             assert method.getReturnType() == returnType;

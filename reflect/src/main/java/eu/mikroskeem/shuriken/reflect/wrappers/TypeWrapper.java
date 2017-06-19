@@ -4,6 +4,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
+
 
 /**
  * Type container
@@ -16,18 +18,20 @@ public class TypeWrapper {
     private final Class<?> type;
     private final Object value;
 
-    TypeWrapper(Object value){
+    TypeWrapper(Object value) {
         this.type = value.getClass();
         this.value = value;
     }
 
+    @NotNull
     @Contract("null -> fail")
-    public static TypeWrapper of(Object value){
+    public static TypeWrapper of(Object value) {
         return new TypeWrapper(value);
     }
 
+    @NotNull
     @Contract("!null, _ -> !null; null, _ -> fail")
-    public static TypeWrapper of(Class<?> type, Object value){
+    public static TypeWrapper of(Class<?> type, Object value) {
         if(type == null) throw new IllegalStateException("Type must not be null");
         return new TypeWrapper(type, value);
     }

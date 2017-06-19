@@ -28,7 +28,7 @@ public class Reflect {
     /**
      * Private constructor, do not use
      */
-    private Reflect(){
+    private Reflect() {
         throw new RuntimeException("No Reflect instance for you!");
     }
 
@@ -40,7 +40,7 @@ public class Reflect {
      * @return ClassWrapper instance
      */
     @Contract("_ -> !null")
-    public static <T> ClassWrapper<T> wrapClass(Class<T> clazz){
+    public static <T> ClassWrapper<T> wrapClass(Class<T> clazz) {
         return ClassWrapper.of(clazz);
     }
 
@@ -63,7 +63,7 @@ public class Reflect {
      * @return Class object or empty, if class wasn't found
      */
     @Contract("null -> fail")
-    public static Optional<ClassWrapper<?>> getClass(String name){
+    public static Optional<ClassWrapper<?>> getClass(String name) {
         return getClass(name, null);
     }
 
@@ -74,15 +74,15 @@ public class Reflect {
      * @return Class object or empty, if class wasn't found
      */
     @Contract("null, null -> fail; null, _ -> fail; !null, null -> _")
-    public static Optional<ClassWrapper<?>> getClass(String name, ClassLoader classLoader){
+    public static Optional<ClassWrapper<?>> getClass(String name, ClassLoader classLoader) {
         assert name != null;
         try {
-            if(classLoader != null){
+            if(classLoader != null) {
                 return Optional.of(ClassWrapper.of(Class.forName(name, true, classLoader)));
             } else {
                 return Optional.of(ClassWrapper.of(Class.forName(name)));
             }
-        } catch (ClassNotFoundException e){
+        } catch (ClassNotFoundException e) {
             return Optional.empty();
         }
     }
@@ -127,8 +127,7 @@ public class Reflect {
             assert classWrapper != null;
             assert fieldName != null;
             Optional<FieldWrapper<T>> o = classWrapper.getField(fieldName, type);
-            if(o.isPresent()) return o.get().read();
-            return null;
+            return o.map(FieldWrapper::read).orElse(null);
         }
 
         @Contract("null, null, _, null -> fail")
@@ -140,14 +139,13 @@ public class Reflect {
             assert value != null;
             try {
                 Optional<FieldWrapper<T>> o = classWrapper.getField(fieldName, type);
-                if(o.isPresent())
-                    o.get().write(value);
+                o.ifPresent(tFieldWrapper -> tFieldWrapper.write(value));
             }
-            catch (Exception ignored){}
+            catch (Exception ignored) {}
         }
 
         @Callers.ensitive
-        public <T> void hackFinalField(FieldWrapper<T> fieldWrapper){
+        public <T> void hackFinalField(FieldWrapper<T> fieldWrapper) {
             check(QuietReflect.class.getPackage());
             Field field = fieldWrapper.getField();
             if (Modifier.isFinal(field.getModifiers())) {
@@ -164,7 +162,7 @@ public class Reflect {
 
         @Callers.ensitive
         @SuppressWarnings("unchecked")
-        public static <T> Class<T> getCaller(){
+        public static <T> Class<T> getCaller() {
             Class[] clazz = new Class[] { null };
             StackTraceElement[] stes = new Throwable().getStackTrace();
             StackTraceElement ste = stes[3];
@@ -173,8 +171,8 @@ public class Reflect {
         }
 
         @Callers.ensitive
-        public static void check(Package p){
-            Method m = new Object(){}.getClass().getEnclosingMethod();
+        public static void check(Package p) {
+            Method m = new Object() {}.getClass().getEnclosingMethod();
             Class<?> caller = getCaller();
             if(m.getAnnotation(ensitive.class) != null && !caller.getPackage().getName().startsWith(p.getName())) {
                 throw new IllegalAccessError("Caller sensitive");

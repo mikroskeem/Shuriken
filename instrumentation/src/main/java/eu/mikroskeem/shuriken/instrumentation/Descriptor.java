@@ -1,9 +1,11 @@
 package eu.mikroskeem.shuriken.instrumentation;
 
-import lombok.AccessLevel;
-import lombok.NoArgsConstructor;
 import org.jetbrains.annotations.Contract;
 import org.objectweb.asm.Type;
+
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 
 /**
  * Build method descriptor for OW2 ASM
@@ -11,8 +13,8 @@ import org.objectweb.asm.Type;
  * @author Mark Vainomaa
  * @version 0.0.1
  */
-@NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class Descriptor {
+    private Descriptor() {}
     private String accepts = "";
     private String returns = "V";
     private final String finalString = "(%s)%s";
@@ -33,11 +35,9 @@ public class Descriptor {
      * @param arguments Types what method accepts
      * @return this {@link Descriptor} instance
      */
-    public Descriptor accepts(Class<?>... arguments){
+    public Descriptor accepts(String... arguments) {
         StringBuilder builder = new StringBuilder();
-        for (Class<?> argument : arguments) {
-            builder.append(Type.getDescriptor(argument));
-        }
+        for (String argument : arguments) builder.append(argument);
         this.accepts = builder.toString();
         return this;
     }
@@ -48,13 +48,31 @@ public class Descriptor {
      * @param arguments Types what method accepts
      * @return this {@link Descriptor} instance
      */
-    public Descriptor returns(Class<?>... arguments){
+    public Descriptor accepts(Class<?>... arguments) {
+        return accepts(Stream.of(arguments).map(Type::getDescriptor).collect(Collectors.toList()).toArray(new String[0]));
+    }
+
+    /**
+     * Build method returns part (default is primitive {@link Void})
+     *
+     * @param arguments Types what method accepts
+     * @return this {@link Descriptor} instance
+     */
+    public Descriptor returns(String... arguments) {
         StringBuilder builder = new StringBuilder();
-        for (Class<?> argument : arguments) {
-            builder.append(Type.getDescriptor(argument));
-        }
+        for (String argument : arguments) builder.append(argument);
         this.returns = builder.toString();
         return this;
+    }
+
+    /**
+     * Build method returns part (default is primitive {@link Void})
+     *
+     * @param arguments Types what method accepts
+     * @return this {@link Descriptor} instance
+     */
+    public Descriptor returns(Class<?>... arguments) {
+        return returns(Stream.of(arguments).map(Type::getDescriptor).collect(Collectors.toList()).toArray(new String[0]));
     }
 
     /**

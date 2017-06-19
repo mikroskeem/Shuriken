@@ -35,7 +35,7 @@ public class MethodHandleFieldWrapper<T> implements FieldWrapper<T> {
         MethodHandles.Lookup lookup = MethodHandles.lookup();
         MethodType getterType;
         MethodType setterType;
-        if(isStatic()){
+        if(isStatic()) {
             getterType = MethodType.methodType(type);
             setterType = MethodType.methodType(void.class, type);
         } else {
@@ -55,6 +55,7 @@ public class MethodHandleFieldWrapper<T> implements FieldWrapper<T> {
      * @param <T> Type
      * @return Instance of FieldWrapper
      */
+    @NotNull
     @Contract("_, !null, !null -> !null")
     public static <T> MethodHandleFieldWrapper<T> of(ClassWrapper<?> classWrapper, Field field, Class<T> type) {
         return new MethodHandleFieldWrapper<>(classWrapper, field, type);

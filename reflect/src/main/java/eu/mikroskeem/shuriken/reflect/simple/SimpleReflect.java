@@ -16,7 +16,7 @@ public class SimpleReflect {
     /**
      * Private constructor, do not use
      */
-    private SimpleReflect(){
+    private SimpleReflect() {
         throw new RuntimeException("No SimpleReflect instance for you!");
     }
 
@@ -30,13 +30,13 @@ public class SimpleReflect {
      */
     @Nullable
     public static Method getMethod(@NotNull Class<?> clazz, @NotNull String method,
-                                   Class<?> returnType, Class<?>... arguments){
+                                   Class<?> returnType, Class<?>... arguments) {
         try {
             Method m = clazz.getDeclaredMethod(method, arguments);
             m.setAccessible(true);
             if(m.getReturnType() != returnType) throw new NoSuchMethodException();
             return m;
-        } catch (NoSuchMethodException e){
+        } catch (NoSuchMethodException e) {
             return null;
         }
     }

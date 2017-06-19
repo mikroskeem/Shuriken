@@ -36,8 +36,8 @@ public enum PrimitiveType {
      */
     @Contract("null -> fail")
     @SuppressWarnings("unchecked")
-    public static <T,V> Class<V> getBoxed(@NonNull Class<T> primitiveClass){
-        for(PrimitiveType value : PrimitiveType.values()){
+    public static <T,V> Class<V> getBoxed(@NonNull Class<T> primitiveClass) {
+        for(PrimitiveType value : PrimitiveType.values()) {
             if(value.getPrimitiveClass() == primitiveClass)
                 return (Class<V>) value.getBoxedClass();
         }
@@ -52,8 +52,8 @@ public enum PrimitiveType {
      */
     @Contract("null -> fail")
     @SuppressWarnings("unchecked")
-    public static <T,V> Class<V> getUnboxed(@NonNull Class<T> boxedClass){
-        for(PrimitiveType value : PrimitiveType.values()){
+    public static <T,V> Class<V> getUnboxed(@NonNull Class<T> boxedClass) {
+        for(PrimitiveType value : PrimitiveType.values()) {
             if(value.getBoxedClass() == boxedClass)
                 return (Class<V>) value.getPrimitiveClass();
         }

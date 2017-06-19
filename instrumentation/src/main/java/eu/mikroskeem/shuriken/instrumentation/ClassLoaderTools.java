@@ -105,7 +105,8 @@ public class ClassLoaderTools {
          * Adds an url to {@link sun.misc.URLClassPath}
          * @param url {@link URL} to add
          */
-        public void addURL(@NonNull URL url) {
+        public void addURL(URL url) {
+            Ensure.ensureCondition(url != null, "URL should not be null!");
             Ensure.ensureCondition(url.getProtocol().equals("file"), "Only file:// protocol is supported!");
             ucp.invokeMethod("addURL", void.class, TypeWrapper.of(url));
             UCPLoader ldr = ucp.invokeMethod("getLoader",

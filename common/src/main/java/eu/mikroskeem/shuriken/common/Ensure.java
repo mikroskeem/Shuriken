@@ -2,7 +2,6 @@ package eu.mikroskeem.shuriken.common;
 
 import eu.mikroskeem.shuriken.reflect.Reflect;
 import eu.mikroskeem.shuriken.reflect.wrappers.TypeWrapper;
-import lombok.NonNull;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -26,14 +25,9 @@ public class Ensure {
      * @param exception Exception what will be thrown, if condition isn't true
      * @param args Exception arguments
      */
-    public static void ensureCondition(boolean condition, Class<? extends Exception> exception, TypeWrapper... args){
-        if(!condition){
-            try {
-                throw Reflect.construct(Reflect.wrapClass(exception), args).getClassInstance();
-            } catch (Throwable e){
-                throwException(e);
-            }
-        }
+    @Contract("false, _, _ -> fail")
+    public static void ensureCondition(boolean condition, Class<? extends Exception> exception, TypeWrapper... args) {
+        if(!condition) throwException(Reflect.construct(Reflect.wrapClass(exception), args).getClassInstance());
     }
 
     /**
@@ -42,6 +36,7 @@ public class Ensure {
      * @param condition Condition to assert
      * @param text Message in {@link IllegalStateException}
      */
+    @Contract("false, _ -> fail")
     public static void ensureCondition(boolean condition, String text) {
         if(!condition) throw new IllegalStateException(text);
     }
@@ -71,8 +66,12 @@ public class Ensure {
     @SuppressWarnings({"ConstantConditions", "OptionalUsedAsFieldOrParameterType"})
     @NotNull
     @Contract("null, _ -> fail")
-    public static <T> T ensurePresent(@NonNull Optional<T> optional, @Nullable String errorMessage){
-        ensureCondition(optional.isPresent(), NullPointerException.class, of(""+errorMessage));
+    public static <T> T ensurePresent(Optional<T> optional, @Nullable String errorMessage) {
+        ensureCondition(
+                notNull(optional, "Optional parameter shouldn't be null!").isPresent(),
+                NullPointerException.class,
+                of(""+errorMessage)
+        );
         return optional.get();
     }
 }

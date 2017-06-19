@@ -19,7 +19,6 @@ public class SneakyThrow {
     @Contract("_ -> fail")
     @SuppressWarnings("unchecked")
     private static <T extends Throwable> T _throwException(Throwable t) throws T {
-        assert t != null;
-        throw (T) t;
+        throw (T) Ensure.notNull(t, "Throwable should not be null");
     }
 }
