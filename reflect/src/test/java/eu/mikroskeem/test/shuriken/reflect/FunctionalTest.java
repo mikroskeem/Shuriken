@@ -2,7 +2,7 @@ package eu.mikroskeem.test.shuriken.reflect;
 
 import eu.mikroskeem.shuriken.reflect.Reflect;
 import eu.mikroskeem.shuriken.reflect.utils.FunctionalField;
-import eu.mikroskeem.shuriken.reflect.wrappers.ClassWrapper;
+import eu.mikroskeem.shuriken.reflect.ClassWrapper;
 import eu.mikroskeem.test.shuriken.reflect.classes.TestClassSeven;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

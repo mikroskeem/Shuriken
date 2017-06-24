@@ -1,10 +1,6 @@
-package eu.mikroskeem.shuriken.reflect.wrappers;
+package eu.mikroskeem.shuriken.reflect;
 
-import lombok.Getter;
-import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Primitive type map
@@ -12,8 +8,6 @@ import org.jetbrains.annotations.NotNull;
  * @author Mark Vainomaa
  * @version 0.0.1
  */
-@RequiredArgsConstructor
-@Getter
 public enum PrimitiveType {
     BYTE(byte.class, Byte.class),
     CHAR(char.class, Character.class),
@@ -24,6 +18,11 @@ public enum PrimitiveType {
     DOUBLE(double.class, Double.class),
     BOOLEAN(boolean.class, Boolean.class),
     VOID(void.class, Void.class);
+
+    PrimitiveType(Class<?> primitiveClass, Class<?> boxedClass) {
+        this.primitiveClass = primitiveClass;
+        this.boxedClass = boxedClass;
+    }
 
     private final Class<?> primitiveClass;
     private final Class<?> boxedClass;
@@ -36,7 +35,8 @@ public enum PrimitiveType {
      */
     @Contract("null -> fail")
     @SuppressWarnings("unchecked")
-    public static <T,V> Class<V> getBoxed(@NonNull Class<T> primitiveClass) {
+    public static <T,V> Class<V> getBoxed(Class<T> primitiveClass) {
+        if(primitiveClass == null) throw new IllegalStateException("Primitive class shouldn't be null!");
         for(PrimitiveType value : PrimitiveType.values()) {
             if(value.getPrimitiveClass() == primitiveClass)
                 return (Class<V>) value.getBoxedClass();
@@ -52,7 +52,8 @@ public enum PrimitiveType {
      */
     @Contract("null -> fail")
     @SuppressWarnings("unchecked")
-    public static <T,V> Class<V> getUnboxed(@NonNull Class<T> boxedClass) {
+    public static <T,V> Class<V> getUnboxed(Class<T> boxedClass) {
+        if(boxedClass == null) throw new IllegalStateException("Boxed class shouldn't be null!");
         for(PrimitiveType value : PrimitiveType.values()) {
             if(value.getBoxedClass() == boxedClass)
                 return (Class<V>) value.getPrimitiveClass();
@@ -67,12 +68,31 @@ public enum PrimitiveType {
      * @return Boxed type
      */
     @Contract("null -> fail")
-    public static Class<?> ensureBoxed(@NotNull Class<?> anyClass) {
+    public static Class<?> ensureBoxed(Class<?> anyClass) {
+        if(anyClass == null) throw new IllegalStateException("Class shouldn't be null!");
         if(anyClass.isPrimitive()) {
             return getBoxed(anyClass);
         } else {
             // Sleep > performance. TODO
             return getBoxed(getUnboxed(anyClass));
         }
+    }
+
+    /**
+     * Gets primitive class of given type
+     *
+     * @return Primitive class
+     */
+    public Class<?> getPrimitiveClass() {
+        return primitiveClass;
+    }
+
+    /**
+     * Gets boxed class of given type
+     *
+     * @return boxed class
+     */
+    public Class<?> getBoxedClass() {
+        return boxedClass;
     }
 }

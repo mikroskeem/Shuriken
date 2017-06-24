@@ -1,8 +1,5 @@
 package eu.mikroskeem.shuriken.reflect.wrappers;
 
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
@@ -12,15 +9,26 @@ import org.jetbrains.annotations.NotNull;
  * @author Mark vainomaa
  * @version 0.0.1
  */
-@Getter
-@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 public class TypeWrapper {
     private final Class<?> type;
     private final Object value;
 
-    TypeWrapper(Object value) {
+    private TypeWrapper(Class<?> type, Object value) {
+        this.type = type;
+        this.value = value;
+    }
+
+    private TypeWrapper(Object value) {
         this.type = value.getClass();
         this.value = value;
+    }
+
+    public Class<?> getType() {
+        return type;
+    }
+
+    public Object getValue() {
+        return value;
     }
 
     @NotNull

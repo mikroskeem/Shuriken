@@ -1,7 +1,7 @@
 package eu.mikroskeem.test.shuriken.reflect;
 
 import eu.mikroskeem.shuriken.reflect.Reflect;
-import eu.mikroskeem.shuriken.reflect.wrappers.ClassWrapper;
+import eu.mikroskeem.shuriken.reflect.ClassWrapper;
 import eu.mikroskeem.test.shuriken.reflect.classes.TestClassFour;
 import eu.mikroskeem.test.shuriken.reflect.classes.TestClassOne;
 import org.junit.jupiter.api.Assertions;
@@ -40,10 +40,9 @@ public class MethodReflectionTester {
     @Test
     public void testClassArrayMethodInvoke() throws Exception {
         ClassWrapper<TestClassFour> cw = Reflect.wrapClass(TestClassFour.class);
+        Double[] expected = new Double[]{-1D, -1D, -1D};
         Double[] actual = cw.invokeMethod("get2", Double[].class);
-        Assertions.assertEquals(Double.valueOf(-1D), actual[0]);
-        Assertions.assertEquals(Double.valueOf(-1D), actual[1]);
-        Assertions.assertEquals(Double.valueOf(-1D), actual[2]);
+        Assertions.assertArrayEquals(expected, actual);
     }
 
     @Test
@@ -51,8 +50,6 @@ public class MethodReflectionTester {
         ClassWrapper<TestClassFour> cw = Reflect.wrapClass(TestClassFour.class);
         double[] expected = new double[]{-1, -1, -1};
         double[] actual = cw.invokeMethod("get", double[].class);
-        Assertions.assertEquals(-1D, actual[0]);
-        Assertions.assertEquals(-1D, actual[1]);
-        Assertions.assertEquals(-1D, actual[2]);
+        Assertions.assertArrayEquals(expected, actual);
     }
 }

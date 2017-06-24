@@ -1,4 +1,4 @@
-package eu.mikroskeem.shuriken.reflect.wrappers;
+package eu.mikroskeem.shuriken.reflect;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
@@ -17,7 +17,8 @@ import java.util.Optional;
 public interface FieldWrapper<T> {
     /**
      * Gets field name
-     * @return field name
+     *
+     * @return Field name
      */
     String getName();
 
@@ -38,21 +39,21 @@ public interface FieldWrapper<T> {
     void write(T value);
 
     /**
-     * Gets field type
+     * Gets {@link Field} type
      *
      * @return Field type
      */
     Class<T> getType();
 
     /**
-     * Gets backing field
+     * Gets backing {@link Field} instance
      *
-     * @return Field instance
+     * @return Backing {@link Field}
      */
     Field getField();
 
     /**
-     * If field is static
+     * Whether field is static
      *
      * @return true if field is static, false otherwise
      */

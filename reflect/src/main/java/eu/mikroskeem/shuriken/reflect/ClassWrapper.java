@@ -1,11 +1,9 @@
-package eu.mikroskeem.shuriken.reflect.wrappers;
+package eu.mikroskeem.shuriken.reflect;
 
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
+import eu.mikroskeem.shuriken.reflect.wrappers.TypeWrapper;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.lang.reflect.*;
 import java.util.Arrays;
@@ -21,10 +19,15 @@ import java.util.stream.Stream;
  * @version 0.0.1
  * @author Mark Vainomaa
  */
-@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class ClassWrapper<T> {
-    @Getter private final Class<T> wrappedClass;
-    @Getter private T classInstance = null;
+    /* Private constructor */
+    private ClassWrapper(Class<T> wrappedClass) {
+        if(wrappedClass == null) throw new IllegalStateException("Wrapped class shouldn't be null!");
+        this.wrappedClass = wrappedClass;
+    }
+
+    private final Class<T> wrappedClass;
+    private T classInstance = null;
 
     /**
      * Construct class with arguments
@@ -33,17 +36,39 @@ public class ClassWrapper<T> {
      * @return this {@link ClassWrapper} instance (for chaining)
      * @see Constructor#newInstance(Object...) for exceptions
      */
-    @SneakyThrows(Exception.class)
     public ClassWrapper<T> construct(TypeWrapper... args) {
-        setClassInstance(null); // Simple test
+        /* Simple test to check if instance is already set */
+        setClassInstance(null);
+
         /* Convert TypeWrapper arguments */
-        Class<?>[] tArgs = Stream.of(args).map(TypeWrapper::getType).collect(Collectors.toList()).toArray(new Class[0]);
-        Object[] cArgs = Stream.of(args).map(TypeWrapper::getValue).collect(Collectors.toList()).toArray();
-        Constructor<T> constructor = getWrappedClass().getDeclaredConstructor(tArgs);
-        /* Make constructor accessible, if it isn't already */
-        if(!constructor.isAccessible()) constructor.setAccessible(true);
-        setClassInstance(constructor.newInstance(cArgs));
+        Class<?>[] tArgs = Reflect.Utils.getAllClasses(args);
+        Object[] cArgs = Reflect.Utils.getAllObjects(args);
+
+        /* Find constructor */
+        Constructor<T> constructor = Reflect.Utils.getDeclaredConstructor(getWrappedClass(), tArgs);
+
+        /* Construct */
+        setClassInstance(Reflect.Utils.newInstance(constructor, cArgs));
         return this;
+    }
+
+    /**
+     * Gets wrapped class
+     *
+     * @return Wrapped {@link Class}
+     */
+    public Class<T> getWrappedClass() {
+        return wrappedClass;
+    }
+
+    /**
+     * Gets class instance. May be null, if instance is not set.
+     *
+     * @return Class instance
+     */
+    @Nullable
+    public T getClassInstance() {
+        return classInstance;
     }
 
     /**
@@ -83,7 +108,8 @@ public class ClassWrapper<T> {
     @Contract("null, null -> fail")
     public <V> Optional<FieldWrapper<V>> getField(String fieldName, Class<V> type) {
         /* Check arguments */
-        assert fieldName != null;
+        if(fieldName == null) throw new IllegalStateException("Field name shouldn't be null!");
+        if(type == null) throw new IllegalStateException("Field type shouldn't be null!");
 
         /* Get field */
         Class<?> cls = wrappedClass;
@@ -96,8 +122,20 @@ public class ClassWrapper<T> {
         if(field == null) return Optional.empty();
 
         /* Set field accessible, if it is not already */
-        if(!field.isAccessible()) field.setAccessible(true);
+        Reflect.Utils.setFieldAccessible(field);
         return Optional.of(MethodHandleFieldWrapper.of(this, field, type));
+    }
+
+    /**
+     * Get class field
+     *
+     * @param fieldName Field's name
+     * @param type Field's type (in {@link ClassWrapper})
+     * @param <V> Field's type
+     * @return {@link FieldWrapper} object or empty, if field wasn't found
+     */
+    public <V> Optional<FieldWrapper<V>> getField(String fieldName, ClassWrapper<V> type) {
+        return getField(fieldName, type.getWrappedClass());
     }
 
     /**
@@ -107,8 +145,8 @@ public class ClassWrapper<T> {
      */
     public List<FieldWrapper<?>> getFields() {
         return Stream.of(wrappedClass.getDeclaredFields())
-                .map(field -> { if(!field.isAccessible()) field.setAccessible(true); return field; })
-                .map(field -> MethodHandleFieldWrapper.of(this, field, field.getType()))
+                .map(Reflect.Utils::setFieldAccessible)
+                .map(field -> MethodHandleFieldWrapper.of(this, field))
                 .collect(Collectors.toList());
     }
 
@@ -124,15 +162,14 @@ public class ClassWrapper<T> {
      */
     @Contract("null, null, _ -> fail")
     @SuppressWarnings("unchecked")
-    @SneakyThrows(Exception.class)
     public <V> V invokeMethod(String methodName, Class<V> returnType, TypeWrapper... args) {
         /* Check arguments */
-        assert methodName != null;
-        assert returnType != null;
+        if(methodName == null) throw new IllegalStateException("Method name shouldn't be null!");
+        if(returnType == null) throw new IllegalStateException("Method return type shouldn't be null!");
 
         /* Convert typewrapper */
-        Class<?>[] tArgs = Stream.of(args).map(TypeWrapper::getType).collect(Collectors.toList()).toArray(new Class[0]);
-        Object[] mArgs = Stream.of(args).map(TypeWrapper::getValue).collect(Collectors.toList()).toArray();
+        Class<?>[] tArgs = Reflect.Utils.getAllClasses(args);
+        Object[] mArgs = Reflect.Utils.getAllObjects(args);
 
         /* Find method */
         Class<?> cls = wrappedClass;
@@ -162,7 +199,7 @@ public class ClassWrapper<T> {
                     })
                     .findFirst().orElse(null);
         } while (method == null && (cls = cls.getSuperclass()) != null);
-        if(method == null) throw new NoSuchMethodException(methodName);
+        if(method == null) Reflect.Utils.throwException(new NoSuchMethodException(methodName));
 
         /* Do method modifier checks */
         if(!Modifier.isStatic(method.getModifiers()) && getClassInstance() == null) {
@@ -170,23 +207,29 @@ public class ClassWrapper<T> {
         }
 
         /* Set method accessible, if it is not already */
-        if(!method.isAccessible()) method.setAccessible(true);
+        Reflect.Utils.setMethodAccessible(method);
 
         /* Check return type */
         Class<?> returnTypeClazz = method.getReturnType();
         if(returnTypeClazz.isPrimitive()) {
             returnType = PrimitiveType.getBoxed(returnTypeClazz);
-        } else {
-            assert method.getReturnType() == returnType;
+        } else if(method.getReturnType() != returnType) {
+            throw new IllegalStateException("Method return type didn't match! Expected: " + returnType +
+                    ", got: " + method.getReturnType());
         }
 
         /* Invoke */
-        if(method.getReturnType() != void.class && method.getReturnType() != Void.class) {
-            return returnType.cast(method.invoke(classInstance, mArgs));
-        } else {
-            method.invoke(classInstance, mArgs);
-            return null;
+        try {
+            if (method.getReturnType() != void.class && method.getReturnType() != Void.class) {
+                return returnType.cast(method.invoke(classInstance, mArgs));
+            }
+            else {
+                method.invoke(classInstance, mArgs);
+            }
+        } catch (Throwable t) {
+            Reflect.Utils.throwException(t);
         }
+        return null;
     }
 
     @Override

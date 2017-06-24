@@ -1,6 +1,6 @@
 package eu.mikroskeem.shuriken.reflect.utils;
 
-import eu.mikroskeem.shuriken.reflect.wrappers.FieldWrapper;
+import eu.mikroskeem.shuriken.reflect.FieldWrapper;
 import org.jetbrains.annotations.Contract;
 
 /**

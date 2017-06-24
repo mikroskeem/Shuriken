@@ -1,21 +1,16 @@
 package eu.mikroskeem.shuriken.reflect;
 
-import eu.mikroskeem.shuriken.reflect.wrappers.ClassWrapper;
-import eu.mikroskeem.shuriken.reflect.wrappers.FieldWrapper;
 import eu.mikroskeem.shuriken.reflect.wrappers.TypeWrapper;
-import lombok.SneakyThrows;
 import org.jetbrains.annotations.Contract;
 import sun.misc.Unsafe;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-import java.lang.reflect.*;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-import static eu.mikroskeem.shuriken.reflect.Reflect.Callers.check;
-import static eu.mikroskeem.shuriken.reflect.Reflect.QuietReflect.THE_QUIET;
 
 /**
  * Reflection library
@@ -24,7 +19,10 @@ import static eu.mikroskeem.shuriken.reflect.Reflect.QuietReflect.THE_QUIET;
  * @author Mark Vainomaa
  */
 public class Reflect {
-    public final static Unsafe THE_UNSAFE = THE_QUIET.getField(wrapClass(Unsafe.class), "theUnsafe", Unsafe.class);
+    /** The instance of {@link Unsafe}. Might be null on unsupported JVMs */
+    public final static Unsafe THE_UNSAFE = Reflect.wrapClass(Unsafe.class).getField("theUnsafe", Unsafe.class)
+            .map(FieldWrapper::read).orElse(null);
+
     /**
      * Private constructor, do not use
      */
@@ -73,9 +71,9 @@ public class Reflect {
      * @param name Class name
      * @return Class object or empty, if class wasn't found
      */
-    @Contract("null, null -> fail; null, _ -> fail; !null, null -> _")
+    @Contract("null, _ -> fail")
     public static Optional<ClassWrapper<?>> getClass(String name, ClassLoader classLoader) {
-        assert name != null;
+        if(name == null) throw new IllegalStateException("Class name shouldn't be null!");
         try {
             if(classLoader != null) {
                 return Optional.of(ClassWrapper.of(Class.forName(name, true, classLoader)));
@@ -98,85 +96,72 @@ public class Reflect {
      */
     @Contract("null, _ -> fail")
     public static <T> ClassWrapper<T> construct(ClassWrapper<T> classWrapper, TypeWrapper... args) {
-        assert classWrapper != null;
+        if(classWrapper == null) throw new IllegalStateException("Class wrapper shouldn't be null!");
         classWrapper.construct(args);
         return classWrapper;
     }
 
-    /* Bad, real bad */
-    public static class QuietReflect {
-        public final static QuietReflect THE_QUIET = new QuietReflect();
-
-        /* You should never do this really */
-        @Contract("null, _ -> fail")
-        @Callers.ensitive
-        @SneakyThrows
-        public <T> ClassWrapper<T> construct(ClassWrapper<T> classWrapper, TypeWrapper... args) {
-            check(QuietReflect.class.getPackage());
-            assert classWrapper != null;
-            classWrapper.construct(args);
-            return classWrapper;
+    /* Package-private utilities class */
+    static class Utils {
+        @Contract("_ -> fail")
+        static void throwException(Throwable t) {
+            throw Utils.<RuntimeException>_throwException(t);
         }
 
-        /* Same applies to this */
-        @Contract("null, null, _ -> fail")
-        @Callers.ensitive
-        @SneakyThrows
-        public <T,V> T getField(ClassWrapper<V> classWrapper, String fieldName, Class<T> type) {
-            check(QuietReflect.class.getPackage());
-            assert classWrapper != null;
-            assert fieldName != null;
-            Optional<FieldWrapper<T>> o = classWrapper.getField(fieldName, type);
-            return o.map(FieldWrapper::read).orElse(null);
-        }
-
-        @Contract("null, null, _, null -> fail")
-        @Callers.ensitive
-        public <T,V> void setField(ClassWrapper<V> classWrapper, String fieldName, Class<T> type, T value) {
-            check(QuietReflect.class.getPackage());
-            assert classWrapper != null;
-            assert fieldName != null;
-            assert value != null;
-            try {
-                Optional<FieldWrapper<T>> o = classWrapper.getField(fieldName, type);
-                o.ifPresent(tFieldWrapper -> tFieldWrapper.write(value));
-            }
-            catch (Exception ignored) {}
-        }
-
-        @Callers.ensitive
-        public <T> void hackFinalField(FieldWrapper<T> fieldWrapper) {
-            check(QuietReflect.class.getPackage());
-            Field field = fieldWrapper.getField();
-            if (Modifier.isFinal(field.getModifiers())) {
-                setField(Reflect.wrapInstance(field), "modifiers", int.class,
-                        field.getModifiers() & ~Modifier.FINAL);
-            }
-        }
-    }
-
-    public static class Callers {
-        @Retention(RetentionPolicy.RUNTIME)
-        @Target(ElementType.METHOD)
-        @interface ensitive {}
-
-        @Callers.ensitive
         @SuppressWarnings("unchecked")
-        public static <T> Class<T> getCaller() {
-            Class[] clazz = new Class[] { null };
-            StackTraceElement[] stes = new Throwable().getStackTrace();
-            StackTraceElement ste = stes[3];
-            Reflect.getClass(ste.getClassName()).ifPresent(cw -> clazz[0] = cw.getWrappedClass());
-            return clazz[0];
+        private static <T extends Throwable> T _throwException(Throwable t) throws T {
+            throw (T) t;
         }
 
-        @Callers.ensitive
-        public static void check(Package p) {
-            Method m = new Object() {}.getClass().getEnclosingMethod();
-            Class<?> caller = getCaller();
-            if(m.getAnnotation(ensitive.class) != null && !caller.getPackage().getName().startsWith(p.getName())) {
-                throw new IllegalAccessError("Caller sensitive");
+        static Field setFieldAccessible(Field field) {
+            if(!field.isAccessible()) field.setAccessible(true);
+            return field;
+        }
+
+        static <T> Constructor<T> setConstructorAccessible(Constructor<T> constructor) {
+            if(!constructor.isAccessible()) constructor.setAccessible(true);
+            return constructor;
+        }
+
+        static Method setMethodAccessible(Method method) {
+            if(!method.isAccessible()) method.setAccessible(true);
+            return method;
+        }
+
+        static <T> Constructor<T> getDeclaredConstructor(Class<T> clazz, Class<?>... args) {
+            try {
+                return setConstructorAccessible(clazz.getDeclaredConstructor(args));
+            } catch (Throwable t) {
+                throwException(t);
             }
+            return null;
+        }
+
+        @SuppressWarnings("unchecked")
+        static <T> T newInstance(Constructor<T> constructor, Object... args) {
+            try {
+                /*if(args.length == 0 && THE_UNSAFE != null) {
+                    return (T) THE_UNSAFE.allocateInstance(constructor.getDeclaringClass());
+                }*/
+                return constructor.newInstance(args);
+            } catch (Throwable t) {
+                throwException(t);
+            }
+            return null;
+        }
+
+        static Class<?>[] getAllClasses(TypeWrapper[] typeWrappers) {
+            return Stream.of(typeWrappers)
+                    .map(TypeWrapper::getType)
+                    .collect(Collectors.toList())
+                    .toArray(new Class[typeWrappers.length]);
+        }
+
+        static Object[] getAllObjects(TypeWrapper[] typeWrappers) {
+            return Stream.of(typeWrappers)
+                    .map(TypeWrapper::getValue)
+                    .collect(Collectors.toList())
+                    .toArray(new Object[typeWrappers.length]);
         }
     }
 }
