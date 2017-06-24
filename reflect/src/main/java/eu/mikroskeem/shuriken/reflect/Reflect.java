@@ -51,6 +51,7 @@ public class Reflect {
      */
     @SuppressWarnings("unchecked")
     public static <T> ClassWrapper<T> wrapInstance(T instance) {
+        if(instance == null) throw new IllegalStateException("Instance shouldn't be null!");
         return wrapClass((Class<T>)instance.getClass()).setClassInstance(instance);
     }
 
