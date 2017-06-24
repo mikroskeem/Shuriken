@@ -16,18 +16,18 @@ public class EnsureTester {
 
     @Test
     public void testFalseCondition() throws Exception {
-        UnsupportedOperationException e = Assertions.assertThrows(UnsupportedOperationException.class, ()->{
-            Ensure.ensureCondition(false, UnsupportedOperationException.class, of("foo"));
-        });
+        UnsupportedOperationException e = Assertions.assertThrows(UnsupportedOperationException.class, () ->
+            Ensure.ensureCondition(false, UnsupportedOperationException.class, of("foo"))
+        );
         Assertions.assertEquals("foo", e.getMessage(), "Exception message didn't match!");
     }
 
     @Test
     public void testNull() throws Exception {
         String a = null;
-        NullPointerException e = Assertions.assertThrows(NullPointerException.class, ()->{
-            String _a = Ensure.notNull(a, "a is null");
-        });
+        NullPointerException e = Assertions.assertThrows(NullPointerException.class, () ->
+            Ensure.notNull(a, "a is null")
+        );
         Assertions.assertEquals("a is null", e.getMessage(), "Exception message didn't match!");
     }
 
@@ -46,8 +46,8 @@ public class EnsureTester {
     @Test
     public void testOptionalNotPresent() throws Exception {
         Optional<String> aOpt = Optional.empty();
-        Assertions.assertThrows(NullPointerException.class, ()->{
-            Ensure.ensurePresent(aOpt, "");
-        });
+        Assertions.assertThrows(NullPointerException.class, () ->
+            Ensure.ensurePresent(aOpt, "")
+        );
     }
 }
