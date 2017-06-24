@@ -1,9 +1,7 @@
 package eu.mikroskeem.shuriken.instrumentation.validate;
 
-import eu.mikroskeem.shuriken.reflect.wrappers.ClassWrapper;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import eu.mikroskeem.shuriken.common.Ensure;
+import eu.mikroskeem.shuriken.reflect.ClassWrapper;
 import org.jetbrains.annotations.Contract;
 
 /**
@@ -12,19 +10,30 @@ import org.jetbrains.annotations.Contract;
  * @author Mark Vainomaa
  * @version 0.0.1
  */
-@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
-@Getter
 public class FieldDescriptor {
     private final String fieldName;
     private final Class<?> fieldType;
+    private FieldDescriptor(String fieldName, Class<?> fieldType) {
+        this.fieldName = Ensure.notNull(fieldName, "Field name shouldn't be null");
+        this.fieldType = Ensure.notNull(fieldType, "Field type shouldn't be null");
+    }
 
-    @Contract("_, _ -> !null")
-    public static FieldDescriptor of(String fieldName, ClassWrapper<?> returnType){
+    public String getFieldName() {
+        return fieldName;
+    }
+
+    public Class<?> getFieldType() {
+        return fieldType;
+    }
+
+    @Contract("_, _ -> !null; null, null -> fail")
+    public static FieldDescriptor of(String fieldName, ClassWrapper<?> returnType) {
+        Ensure.notNull(returnType, "Field type shouldn't be null");
         return new FieldDescriptor(fieldName, returnType.getWrappedClass());
     }
 
-    @Contract("_, _ -> !null")
-    public static FieldDescriptor of(String fieldName, Class<?> returnType){
+    @Contract("_, _ -> !null; null, null -> fail")
+    public static FieldDescriptor of(String fieldName, Class<?> returnType) {
         return new FieldDescriptor(fieldName, returnType);
     }
 }

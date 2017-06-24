@@ -25,7 +25,7 @@ public class Descriptor {
      * @return {@link Descriptor} instance
      */
     @Contract(" -> !null")
-    public static Descriptor newDescriptor(){
+    public static Descriptor newDescriptor() {
         return new Descriptor();
     }
 
@@ -81,7 +81,7 @@ public class Descriptor {
      * @return Descriptor string
      */
     @Override
-    public String toString(){
+    public String toString() {
         return String.format(finalString, accepts, returns);
     }
 }

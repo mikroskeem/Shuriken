@@ -2,8 +2,8 @@ package eu.mikroskeem.test.shuriken.instrumentation;
 
 import eu.mikroskeem.shuriken.instrumentation.ClassLoaderTools;
 import eu.mikroskeem.shuriken.reflect.Reflect;
-import eu.mikroskeem.shuriken.reflect.wrappers.ClassWrapper;
-import eu.mikroskeem.shuriken.reflect.wrappers.FieldWrapper;
+import eu.mikroskeem.shuriken.reflect.ClassWrapper;
+import eu.mikroskeem.shuriken.reflect.FieldWrapper;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassWriter;

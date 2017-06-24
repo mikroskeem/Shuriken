@@ -1,9 +1,9 @@
 package eu.mikroskeem.shuriken.instrumentation.validate;
 
-import eu.mikroskeem.shuriken.reflect.wrappers.ClassWrapper;
-import lombok.Getter;
-import lombok.NonNull;
+import eu.mikroskeem.shuriken.common.Ensure;
+import eu.mikroskeem.shuriken.reflect.ClassWrapper;
 import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -14,34 +14,47 @@ import java.util.stream.Stream;
  * @author Mark Vainomaa
  * @version 0.0.1
  */
-@Getter
 public class ClassDescriptor {
     private final Class<?> clazz;
     private final Class<?>[] extendingClasses;
-    private ClassDescriptor(Class<?> clazz, Class<?>... arguments){
-        this.clazz = clazz;
+    private ClassDescriptor(Class<?> clazz, Class<?>... arguments) {
+        this.clazz = Ensure.notNull(clazz, "Class shouldn't be null");
         this.extendingClasses = arguments;
     }
 
-    @Contract("_, _ -> !null")
-    public static ClassDescriptor ofWrapped(@NonNull ClassWrapper<?> cw, ClassWrapper<?>... cws){
-        return ofWrapped(cw.getWrappedClass(), cws);
+    @NotNull
+    public Class<?> getDescribedClass() {
+        return clazz;
     }
 
-    @Contract("_, _ -> !null")
-    public static ClassDescriptor ofWrapped(@NonNull ClassWrapper<?> cw, Class<?>... classes){
-        return of(cw.getWrappedClass(), classes);
+    @NotNull
+    public Class<?>[] getExtendingClasses() {
+        return extendingClasses;
     }
 
+    @NotNull
     @Contract("_, _ -> !null")
-    public static ClassDescriptor ofWrapped(@NonNull Class<?> clazz, ClassWrapper<?>... cws){
+    public static ClassDescriptor ofWrapped(ClassWrapper<?> cw, ClassWrapper<?>... cws) {
+        return ofWrapped(Ensure.notNull(cw, "ClassWrapper shouldn't be null!").getWrappedClass(), cws);
+    }
+
+    @NotNull
+    @Contract("_, _ -> !null")
+    public static ClassDescriptor ofWrapped(ClassWrapper<?> cw, Class<?>... classes) {
+        return of(Ensure.notNull(cw, "ClassWrapper shouldn't be null!").getWrappedClass(), classes);
+    }
+
+    @NotNull
+    @Contract("_, _ -> !null")
+    public static ClassDescriptor ofWrapped(Class<?> clazz, ClassWrapper<?>... cws) {
         Class[] classes = Stream.of(cws).map(ClassWrapper::getWrappedClass)
-                .collect(Collectors.toList()).toArray(new Class[0]);
-        return of(clazz, classes);
+                .collect(Collectors.toList()).toArray(new Class[cws.length]);
+        return of(Ensure.notNull(clazz, "Class shouldn't be null!"), classes);
     }
 
-    @Contract("_, _ -> !null; null, _ -> fail")
-    public static ClassDescriptor of(@NonNull Class<?> clazz, Class<?>... classes){
-        return new ClassDescriptor(clazz, classes);
+    @NotNull
+    @Contract("null, null -> fail")
+    public static ClassDescriptor of(Class<?> clazz, Class<?>... classes) {
+        return new ClassDescriptor(Ensure.notNull(clazz, "Class shouldn't be null!"), classes);
     }
 }

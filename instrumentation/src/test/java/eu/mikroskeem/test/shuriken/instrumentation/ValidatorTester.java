@@ -6,7 +6,7 @@ import eu.mikroskeem.shuriken.instrumentation.validate.ConstructorDescriptor;
 import eu.mikroskeem.shuriken.instrumentation.validate.MethodDescriptor;
 import eu.mikroskeem.shuriken.instrumentation.validate.Validate;
 import eu.mikroskeem.shuriken.reflect.Reflect;
-import eu.mikroskeem.shuriken.reflect.wrappers.ClassWrapper;
+import eu.mikroskeem.shuriken.reflect.ClassWrapper;
 import eu.mikroskeem.test.shuriken.instrumentation.testclasses.TestClass;
 import eu.mikroskeem.test.shuriken.instrumentation.testclasses.TestClass2;
 import org.junit.jupiter.api.Assertions;
@@ -33,9 +33,9 @@ public class ValidatorTester {
         Assertions.assertEquals(clazzContents, Validate.checkGeneratedClass(clazzContents));
 
         byte[] invalidClazzContents = InvalidBytecodeDump.INST.generate();
-        ClassFormatError e = Assertions.assertThrows(ClassFormatError.class, ()->{
-           Assertions.assertNotEquals(invalidClazzContents, Validate.checkGeneratedClass(invalidClazzContents));
-        });
+        ClassFormatError e = Assertions.assertThrows(ClassFormatError.class, () ->
+            Assertions.assertNotEquals(invalidClazzContents, Validate.checkGeneratedClass(invalidClazzContents))
+        );
     }
 
     @Test
@@ -47,9 +47,9 @@ public class ValidatorTester {
 
     @Test
     public void testInvalidMethodValidator() throws Exception {
-        Assertions.assertThrows(NullPointerException.class, ()->{
-            Validate.checkMethods(TestClass.class, MethodDescriptor.of("e", int.class, int.class));
-        });
+        Assertions.assertThrows(NullPointerException.class, ()->
+            Validate.checkMethods(TestClass.class, MethodDescriptor.of("e", int.class, int.class))
+        );
     }
 
     @Test

@@ -16,7 +16,7 @@ public class ClassTools {
      * @return Unqualified class name
      */
     @NotNull
-    public static String unqualifyName(String className){
+    public static String unqualifyName(String className) {
         return Ensure.notNull(className, "Class name shouldn't be null!").replace(".", "/");
     }
 
@@ -40,8 +40,8 @@ public class ClassTools {
      * @return Signature string
      */
     @NotNull
-    public static String getGenericSignature(Class<?> genericClass, Class<?>... types){
-        String genericName = unqualifyName(genericClass.getName());
+    public static String getGenericSignature(Class<?> genericClass, Class<?>... types) {
+        String genericName = unqualifyName(Ensure.notNull(genericClass, "Class shouldn't be null!").getName());
         StringBuilder sb = new StringBuilder();
         for(Class<?> type: types) sb.append("L").append(type.getSimpleName()).append(";");
         return "L" + genericName + "<" + sb.toString() + ">;";
@@ -72,6 +72,6 @@ public class ClassTools {
      *                   (or explictly extending Object, which is redundant anyway)
      */
     public static void generateSimpleSuperConstructor(@NotNull ClassWriter classWriter, @NotNull Class<?> superClass) {
-        generateSimpleSuperConstructor(classWriter, superClass.getName());
+        generateSimpleSuperConstructor(classWriter, Ensure.notNull(superClass, "Class shouldn't be null").getName());
     }
 }

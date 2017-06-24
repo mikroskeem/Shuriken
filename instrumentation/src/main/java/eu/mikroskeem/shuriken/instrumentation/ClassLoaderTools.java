@@ -3,18 +3,20 @@ package eu.mikroskeem.shuriken.instrumentation;
 import eu.mikroskeem.shuriken.common.Ensure;
 import eu.mikroskeem.shuriken.common.SneakyThrow;
 import eu.mikroskeem.shuriken.instrumentation.validate.Validate;
+import eu.mikroskeem.shuriken.reflect.ClassWrapper;
+import eu.mikroskeem.shuriken.reflect.FieldWrapper;
 import eu.mikroskeem.shuriken.reflect.Reflect;
 import eu.mikroskeem.shuriken.reflect.utils.FunctionalField;
-import eu.mikroskeem.shuriken.reflect.wrappers.ClassWrapper;
-import eu.mikroskeem.shuriken.reflect.wrappers.FieldWrapper;
-import eu.mikroskeem.shuriken.reflect.wrappers.TypeWrapper;
-import lombok.NonNull;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+
+import static eu.mikroskeem.shuriken.reflect.wrappers.TypeWrapper.of;
 
 
 /**
@@ -27,7 +29,7 @@ public class ClassLoaderTools {
     /**
      * Private constructor, do not use
      */
-    private ClassLoaderTools(){
+    private ClassLoaderTools() {
         throw new RuntimeException("No ClassLoaderTools instance for you!");
     }
 
@@ -42,24 +44,17 @@ public class ClassLoaderTools {
      * @throws ClassFormatError if class is inconsistent
      */
     @Nullable
-    public static Class<?> defineClass(@NotNull ClassLoader classLoader, @NotNull String name, @NotNull byte[] data)
-            throws ClassFormatError {
-        return Reflect.THE_UNSAFE.defineClass(name, Validate.checkGeneratedClass(data), 0, data.length, classLoader, null);
-        /*
-        try {
-            return Reflect.wrapClass(ClassLoader.class)
-                    .setClassInstance(classLoader)
-                    .invokeMethod("defineClass", Class.class,
-                            of(name), of(byte[].class, data), of(int.class, 0),
-                            of(int.class, data.length));
-        } catch (InvocationTargetException e) {
-            if(e.getTargetException() instanceof ClassFormatError){
-                throw (ClassFormatError)e.getTargetException();
-            }
-        }
-        catch (IllegalAccessException|NoSuchMethodException ignored){}
-        return null;
-        */
+    public static Class<?> defineClass(ClassLoader classLoader, String name, byte[] data) throws ClassFormatError {
+        Ensure.notNull(classLoader, "Classloader shouldn't be null!");
+        Ensure.notNull(name, "Name shouldn't be null!");
+        Ensure.notNull(data, "Class data shouldn't be null!");
+        if(Reflect.THE_UNSAFE != null)
+            return Reflect.THE_UNSAFE.defineClass(name, Validate.checkGeneratedClass(data), 0, data.length, classLoader, null);
+        return Reflect.wrapClass(ClassLoader.class)
+                .setClassInstance(classLoader)
+                .invokeMethod("defineClass", Class.class,
+                        of(name), of(byte[].class, data), of(int.class, 0),
+                        of(int.class, data.length));
     }
 
     /**
@@ -108,9 +103,9 @@ public class ClassLoaderTools {
         public void addURL(URL url) {
             Ensure.ensureCondition(url != null, "URL should not be null!");
             Ensure.ensureCondition(url.getProtocol().equals("file"), "Only file:// protocol is supported!");
-            ucp.invokeMethod("addURL", void.class, TypeWrapper.of(url));
+            ucp.invokeMethod("addURL", void.class, of(url));
             UCPLoader ldr = ucp.invokeMethod("getLoader",
-                    ucpLoader.getWrappedClass(), TypeWrapper.of(url));
+                    ucpLoader.getWrappedClass(), of(url));
             loaders.add(ldr);
             lmap.put("file://" + url.getFile(), ldr);
         }
