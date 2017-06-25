@@ -7,7 +7,7 @@ package eu.mikroskeem.shuriken.injector;
  */
 public interface Injector {
     /**
-     * Instantiate object via no-args constructor
+     * Instantiates object via no-args constructor
      *
      * @param clazz Class to instatiate
      * @param <T> Class type
@@ -16,7 +16,7 @@ public interface Injector {
     <T> T getInstance(Class<T> clazz);
 
     /**
-     * Inject existing fields annotated
+     * Injects existing fields annotated
      * with {@link javax.inject.Inject}
      *
      * @param instance Instance to inject

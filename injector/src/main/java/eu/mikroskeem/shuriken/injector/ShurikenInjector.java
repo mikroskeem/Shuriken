@@ -1,18 +1,19 @@
 package eu.mikroskeem.shuriken.injector;
 
-import eu.mikroskeem.shuriken.common.SneakyThrow;
+import eu.mikroskeem.shuriken.common.Ensure;
+import eu.mikroskeem.shuriken.reflect.FieldWrapper;
 import eu.mikroskeem.shuriken.reflect.Reflect;
-import eu.mikroskeem.shuriken.reflect.wrappers.FieldWrapper;
-import lombok.RequiredArgsConstructor;
 
 import javax.inject.Inject;
 
 /**
  * @author Mark Vainomaa
  */
-@RequiredArgsConstructor
 public class ShurikenInjector implements Injector {
     private final Binder binder;
+    private ShurikenInjector(Binder binder) {
+        this.binder = binder;
+    }
 
     /**
      * Create injector out of {@link eu.mikroskeem.shuriken.injector.Binder.Builder} implementation. <br>
@@ -26,9 +27,9 @@ public class ShurikenInjector implements Injector {
      * @param builder {@link eu.mikroskeem.shuriken.injector.Binder.Builder} implementation
      * @return {@link Injector} instance, in this case {@link ShurikenInjector}
      */
-    public static Injector createInjector(Binder.Builder builder){
+    public static Injector createInjector(Binder.Builder builder) {
         Binder binder = new Binder();
-        builder.configure(binder);
+        Ensure.notNull(builder, "Builder shouldn't be null!").configure(binder);
         return new ShurikenInjector(binder);
     }
 
@@ -37,12 +38,7 @@ public class ShurikenInjector implements Injector {
      */
     @Override
     public <T> T getInstance(Class<T> clazz) {
-        try {
-            return injectMembers(Reflect.wrapClass(clazz).construct().getClassInstance());
-        } catch (Exception e){
-            SneakyThrow.throwException(e);
-        }
-        return null;
+        return injectMembers(Reflect.wrapClass(clazz).construct().getClassInstance());
     }
 
     /**
@@ -50,34 +46,25 @@ public class ShurikenInjector implements Injector {
      */
     @Override
     public <T> T injectMembers(T instance) {
-        try {
-            Reflect.wrapInstance(instance).getFields().forEach(this::injectField);
-            return instance;
-        } catch (Exception e){
-            SneakyThrow.throwException(e);
-        }
-        return null;
+        Reflect.wrapInstance(instance).getFields().forEach(this::injectField);
+        return instance;
     }
 
     /* Get binding for class */
     @SuppressWarnings("unchecked")
-    private <T> Binder.Target<T> getTarget(Class<T> clazz){
+    private <T> Binder.Target<T> getTarget(Class<T> clazz) {
         return (Binder.Target<T>)binder.getBindings().get(clazz);
     }
 
     /* Inject field */
-    private <T> void injectField(FieldWrapper<T> field){
-        try {
-            if(field.getAnnotation(Inject.class).isPresent()) {
-                Binder.Target<T> target;
-                if((target = getTarget(field.getType())) != null){
-                    field.write(target.getInstance());
-                } else {
-                    throw new IllegalStateException("There are no registered bindings for class: " + field.getType());
-                }
-            }
-        } catch (Exception e){
-            SneakyThrow.throwException(e);
+    private <T> void injectField(FieldWrapper<T> field) {
+        if(field.getAnnotation(Inject.class).isPresent()) {
+            Binder.Target<T> target;
+            Ensure.ensureCondition(
+                    (target = getTarget(field.getType())) != null,
+                    "There are no registered bindings for class: " + field.getType()
+            );
+            field.write(target.getInstance());
         }
     }
 }

@@ -1,6 +1,6 @@
 package eu.mikroskeem.shuriken.injector;
 
-import lombok.RequiredArgsConstructor;
+import eu.mikroskeem.shuriken.common.Ensure;
 
 import java.lang.annotation.Annotation;
 
@@ -10,11 +10,13 @@ import java.lang.annotation.Annotation;
  *
  * @author Mark Vainomaa
  */
-@RequiredArgsConstructor
 public class Named implements javax.inject.Named {
     private final String value;
+    Named(String value) {
+        this.value = Ensure.notNull(value, "Value shouldn't be null!");
+    }
 
-    public static Named as(String name){
+    public static Named as(String name) {
         return new Named(name);
     }
 

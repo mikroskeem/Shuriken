@@ -1,8 +1,8 @@
 package eu.mikroskeem.test.shuriken.injector;
 
 import eu.mikroskeem.shuriken.reflect.Reflect;
-import eu.mikroskeem.shuriken.reflect.wrappers.ClassWrapper;
-import eu.mikroskeem.shuriken.reflect.wrappers.FieldWrapper;
+import eu.mikroskeem.shuriken.reflect.ClassWrapper;
+import eu.mikroskeem.shuriken.reflect.FieldWrapper;
 import eu.mikroskeem.test.shuriken.injector.testclasses.TestClassThree;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

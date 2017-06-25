@@ -1,8 +1,8 @@
 package eu.mikroskeem.shuriken.injector;
 
+import eu.mikroskeem.shuriken.common.Ensure;
 import eu.mikroskeem.shuriken.reflect.Reflect;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import org.jetbrains.annotations.Contract;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -13,17 +13,26 @@ import java.util.Map;
  * @author Mark Vainomaa
  */
 public class Binder {
-    @Getter private final Map<Class<?>, Target<?>> bindings = new HashMap<>();
+    private final Map<Class<?>, Target<?>> bindings = new HashMap<>();
 
     /**
-     * Bind class
+     * Binds class
      *
      * @param clazz Class to bind
      * @param <T> Class type
      * @return {@link Target} instance
      */
-    public <T> Target<T> bind(Class<T> clazz){
+    public <T> Target<T> bind(Class<T> clazz) {
         return new Target<>(this, clazz);
+    }
+
+    /**
+     * Gets bindings
+     * 
+     * @return Map of classes and targets
+     */
+    Map<Class<?>, Target<?>> getBindings() {
+        return bindings;
     }
 
     /**
@@ -31,10 +40,14 @@ public class Binder {
      *
      * @param <T> Class target type
      */
-    @RequiredArgsConstructor
     public static class Target<T> {
         private final Binder binder;
-        @Getter private final Class<T> bindClass;
+        private final Class<T> bindClass;
+        
+        private Target(Binder binder, Class<T> bindClass) {
+            this.binder = Ensure.notNull(binder, "Binder shouldn't be null!");
+            this.bindClass = Ensure.notNull(bindClass, "Bind class shouldn't be null!");
+        }
 
         //@Getter private Annotation annotation = null;
         private Class<? extends T> targetClass = null;
@@ -42,44 +55,56 @@ public class Binder {
         private boolean singleton = false;
 
         /**
-         * Bind class to existing instance. This instance will be injected into fields
+         * Gets bind class
+         *
+         * @return bind class
+         */
+        public Class<T> getBindClass() {
+            return bindClass;
+        }
+
+        /**
+         * Binds class to existing instance. This instance will be injected into fields
          *
          * @param instance Instance
          */
-        public void toInstance(T instance){
-            this.instance = instance;
+        @Contract("null -> fail")
+        public void toInstance(T instance) {
+            this.instance = Ensure.notNull(instance, "Instance shouldn't be null!");
             binder.bindings.put(bindClass, this);
         }
 
         /**
-         * Bind class to implementing class. That class will be instantiated for every required field
+         * Binds class to implementing class. That class will be instantiated for every required field
          *
          * @param clazz Implementing class
          */
-        public void to(Class<? extends T> clazz){
-            this.targetClass = clazz;
+        @Contract("null -> fail")
+        public void to(Class<? extends T> clazz) {
+            this.targetClass = Ensure.notNull(clazz, "Class shouldn't be null!");
             binder.bindings.put(bindClass, this);
         }
 
         /**
-         * Bind class to implementing class singleton. That class will be instantiated once and given
+         * Binds class to implementing class singleton. That class will be instantiated once and given
          * instance is injected to every required field
          *
          * @param clazz Implementing class
          */
-        public void toSingleton(Class<? extends T> clazz){
+        @Contract("null -> fail")
+        public void toSingleton(Class<? extends T> clazz) {
             this.singleton = true;
-            this.targetClass = clazz;
+            this.targetClass = Ensure.notNull(clazz, "Class shouldn't be null!");
             try {
                 instance = Reflect.wrapClass(clazz).construct().getClassInstance();
                 binder.bindings.put(bindClass, this);
-            } catch (Exception e){
+            } catch (Exception e) {
                 throw new RuntimeException("Failed to configure binding", e);
             }
         }
 
         /* TODO: finish this
-        public Target<T> annotatedWith(Annotation annotation){
+        public Target<T> annotatedWith(Annotation annotation) {
             if(this.annotation != null) throw new IllegalStateException("Annotation is already set");
             this.annotation = annotation;
             return this;
@@ -87,19 +112,17 @@ public class Binder {
         */
 
         /* Get instance of class */
-        T getInstance(){
-            if(instance != null){
-                return instance;
-            } else {
-                if(!singleton){
+        T getInstance() {
+            if(instance == null) {
+                if(!singleton) {
                     try {
                         return Reflect.wrapClass(targetClass).construct().getClassInstance();
-                    } catch (Exception e){
+                    } catch (Exception e) {
                         throw new RuntimeException("Failed to configure binding", e);
                     }
                 }
             }
-            throw new IllegalStateException("Code shouldn't reach here");
+            return instance;
         }
     }
 
