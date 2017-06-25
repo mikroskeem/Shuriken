@@ -7,7 +7,7 @@ import org.objectweb.asm.MethodVisitor;
 
 import static org.objectweb.asm.Opcodes.*;
 
-public class ClassTools {
+public final class ClassTools {
     /**
      * Unqualify class name <br>
      * In other words, <pre>foo.bar.baz</pre> -&gt; <pre>foo/bar/baz</pre>

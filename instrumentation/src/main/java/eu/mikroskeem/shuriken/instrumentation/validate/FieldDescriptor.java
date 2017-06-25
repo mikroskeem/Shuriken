@@ -10,7 +10,7 @@ import org.jetbrains.annotations.Contract;
  * @author Mark Vainomaa
  * @version 0.0.1
  */
-public class FieldDescriptor {
+public final class FieldDescriptor {
     private final String fieldName;
     private final Class<?> fieldType;
     private FieldDescriptor(String fieldName, Class<?> fieldType) {

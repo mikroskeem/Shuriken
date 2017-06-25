@@ -16,7 +16,7 @@ import java.lang.reflect.Modifier;
  * @author Mark Vainomaa
  * @version 0.0.1
  */
-public class MethodHandleFieldWrapper<T> implements FieldWrapper<T> {
+final class MethodHandleFieldWrapper<T> implements FieldWrapper<T> {
     private final ClassWrapper<?> classWrapper;
     private final Field field;
     private final Class<T> type;

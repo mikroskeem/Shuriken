@@ -13,7 +13,7 @@ import java.util.stream.Stream;
  * @author Mark Vainomaa
  * @version 0.0.1
  */
-public class Descriptor {
+public final class Descriptor {
     private Descriptor() {}
     private String accepts = "";
     private String returns = "V";

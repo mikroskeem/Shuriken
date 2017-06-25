@@ -14,7 +14,7 @@ import java.util.stream.Stream;
  * @author Mark Vainomaa
  * @version 0.0.1
  */
-public class ClassDescriptor {
+public final class ClassDescriptor {
     private final Class<?> clazz;
     private final Class<?>[] extendingClasses;
     private ClassDescriptor(Class<?> clazz, Class<?>... arguments) {

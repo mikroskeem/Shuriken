@@ -25,7 +25,7 @@ import static eu.mikroskeem.shuriken.reflect.wrappers.TypeWrapper.of;
  * @author Mark Vainomaa
  * @version 0.0.1
  */
-public class ClassLoaderTools {
+public final class ClassLoaderTools {
     /**
      * Private constructor, do not use
      */

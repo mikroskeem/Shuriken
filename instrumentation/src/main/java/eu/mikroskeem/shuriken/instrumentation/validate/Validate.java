@@ -20,7 +20,7 @@ import java.util.stream.Stream;
  * @author Mark Vainomaa
  * @version 0.0.1
  */
-public class Validate {
+public final class Validate {
     /**
      * Private constructor, do not use
      */

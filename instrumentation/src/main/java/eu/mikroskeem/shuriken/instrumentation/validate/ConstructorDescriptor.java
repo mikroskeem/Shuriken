@@ -13,7 +13,7 @@ import java.util.stream.Stream;
  * @author Mark Vainomaa
  * @version 0.0.1
  */
-public class ConstructorDescriptor {
+public final class ConstructorDescriptor {
     private final Class<?>[] arguments;
     private ConstructorDescriptor(Class<?>... arguments){
         this.arguments = arguments;

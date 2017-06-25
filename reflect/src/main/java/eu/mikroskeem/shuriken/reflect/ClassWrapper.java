@@ -19,7 +19,7 @@ import java.util.stream.Stream;
  * @version 0.0.1
  * @author Mark Vainomaa
  */
-public class ClassWrapper<T> {
+public final class ClassWrapper<T> {
     /* Private constructor */
     private ClassWrapper(Class<T> wrappedClass) {
         if(wrappedClass == null) throw new IllegalStateException("Wrapped class shouldn't be null!");

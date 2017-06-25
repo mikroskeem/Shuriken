@@ -12,7 +12,7 @@ import java.util.stream.Stream;
  * @author Mark Vainomaa
  * @version 0.0.1
  */
-public class MethodDescriptor {
+public final class MethodDescriptor {
     private final String methodName;
     private final Class<?> returnType;
     private final Class[] arguments;
