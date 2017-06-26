@@ -71,7 +71,7 @@ public class MethodReflectorTester {
         TestClass3n4Reflector reflectorImpl = reflector.getReflector();
         Assertions.assertEquals(tc.invokeMethod("a", String.class), reflectorImpl.a());
         Assertions.assertEquals(tc.invokeMethod("b", int.class).intValue(), reflectorImpl.b());
-        Assertions.assertNull(tc.invokeMethod("c", void.class));
+        reflectorImpl.c();
         Assertions.assertEquals(tc.invokeMethod("d", char.class).charValue(), reflectorImpl.d());
         Assertions.assertEquals(tc.invokeMethod("e", String.class, eParams), reflectorImpl.e(3, "a", 'a'));
     }
