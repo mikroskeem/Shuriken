@@ -2,6 +2,7 @@ package eu.mikroskeem.shuriken.instrumentation;
 
 import eu.mikroskeem.shuriken.common.Ensure;
 import org.jetbrains.annotations.NotNull;
+import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 
@@ -53,10 +54,24 @@ public final class ClassTools {
      * @param classWriter ClassWriter instance
      * @param superClass Super class name (use {@link Object} for non-extending classes
      *                   (or explictly extending Object, which is redundant anyway)
+     * @deprecated Using ClassVisitor is better idea
      */
+    @Deprecated
     public static void generateSimpleSuperConstructor(@NotNull ClassWriter classWriter, @NotNull String superClass) {
-        MethodVisitor mv = Ensure.notNull(classWriter, "ClassWriter shouldn't be null!")
+        generateSimpleSuperConstructor((ClassVisitor)classWriter, superClass);
+    }
+
+    /**
+     * Generate simple <pre>super()</pre> calling constructor
+     *
+     * @param classVisitor ClassVisitor instance
+     * @param superClass Super class name (use {@link Object} for non-extending classes
+     *                   (or explictly extending Object, which is redundant anyway)
+     */
+    public static void generateSimpleSuperConstructor(@NotNull ClassVisitor classVisitor, @NotNull String superClass) {
+        MethodVisitor mv = Ensure.notNull(classVisitor, "ClassWriter shouldn't be null!")
                 .visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
+        mv.visitCode();
         mv.visitVarInsn(ALOAD, 0);
         mv.visitMethodInsn(INVOKESPECIAL, unqualifyName(superClass), "<init>", "()V", false);
         mv.visitInsn(RETURN);
@@ -70,8 +85,21 @@ public final class ClassTools {
      * @param classWriter ClassWriter instance
      * @param superClass Super class object (use {@link Object} for non-extending classes
      *                   (or explictly extending Object, which is redundant anyway)
+     * @deprecated Using ClassVisitor is better idea
      */
+    @Deprecated
     public static void generateSimpleSuperConstructor(@NotNull ClassWriter classWriter, @NotNull Class<?> superClass) {
-        generateSimpleSuperConstructor(classWriter, Ensure.notNull(superClass, "Class shouldn't be null").getName());
+        generateSimpleSuperConstructor((ClassVisitor)classWriter, Ensure.notNull(superClass, "Class shouldn't be null").getName());
+    }
+
+    /**
+     * Generate simple <pre>super()</pre> calling constructor
+     *
+     * @param classVisitor ClassWriter instance
+     * @param superClass Super class object (use {@link Object} for non-extending classes
+     *                   (or explictly extending Object, which is redundant anyway)
+     */
+    public static void generateSimpleSuperConstructor(@NotNull ClassVisitor classVisitor, @NotNull Class<?> superClass) {
+        generateSimpleSuperConstructor(classVisitor, Ensure.notNull(superClass, "Class shouldn't be null").getName());
     }
 }
