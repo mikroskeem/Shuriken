@@ -1,5 +1,5 @@
 /**
- * MethodReflector utility, to ease method reflections
+ * MethodReflector utility, to ease method/field/constructor reflections
  *
  * @author Mark Vainomaa
  */

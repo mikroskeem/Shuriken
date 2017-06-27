@@ -7,15 +7,15 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.Modifier;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.WeakHashMap;
 
 
 /**
  * @author Mark Vainomaa
  */
 public final class MethodReflector<T> {
-    private final static Map<Pair<ClassWrapper<?>, Class<?>>, MethodReflector<?>> methodReflectors = new HashMap<>();
+    private final static Map<Pair<ClassWrapper<?>, Class<?>>, MethodReflector<?>> methodReflectors = new WeakHashMap<>();
     private final static MethodReflectorFactory factory = new MethodReflectorFactory();
     private MethodReflector(ClassWrapper<?> target, Class<T> itf) {
         this.clazz = target;

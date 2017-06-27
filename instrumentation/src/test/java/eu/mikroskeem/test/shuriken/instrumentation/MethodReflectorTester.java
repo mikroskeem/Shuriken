@@ -1,12 +1,10 @@
 package eu.mikroskeem.test.shuriken.instrumentation;
 
-import eu.mikroskeem.shuriken.instrumentation.methodreflector.MethodReflector;
+import eu.mikroskeem.shuriken.instrumentation.methodreflector.*;
 import eu.mikroskeem.shuriken.reflect.ClassWrapper;
 import eu.mikroskeem.shuriken.reflect.Reflect;
 import eu.mikroskeem.shuriken.reflect.wrappers.TypeWrapper;
-import eu.mikroskeem.test.shuriken.instrumentation.testclasses.TestClass3;
-import eu.mikroskeem.test.shuriken.instrumentation.testclasses.TestClass4;
-import eu.mikroskeem.test.shuriken.instrumentation.testclasses.TestClass5;
+import eu.mikroskeem.test.shuriken.instrumentation.testclasses.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -19,6 +17,37 @@ import static eu.mikroskeem.shuriken.reflect.Reflect.wrapInstance;
  * @author Mark Vainomaa
  */
 public class MethodReflectorTester {
+    @Test
+    public void testMethodReflector() {
+        ClassWrapper<TestClass> tc = wrapClass(TestClass.class);
+        MethodReflector<DummyInterface> reflector = newInstance(tc, DummyInterface.class);
+
+        Assertions.assertEquals(DummyInterface.class, reflector.getInterface());
+        Assertions.assertEquals(DummyInterface.class, reflector.getReflector().getClass().getInterfaces()[0]);
+        Assertions.assertEquals(TestClass.class, reflector.getTargetClass().getWrappedClass());
+    }
+
+    @Test
+    public void testMethodReflectorReUse() {
+        ClassWrapper<TestClass> tc = wrapClass(TestClass.class);
+        MethodReflector<DummyInterface> reflector1 = newInstance(tc, DummyInterface.class);
+        MethodReflector<DummyInterface> reflector2 = newInstance(tc, DummyInterface.class);
+        MethodReflector<DummyInterface> reflector3 = newInstance(tc, DummyInterface.class);
+        MethodReflector<DummyInterface> reflector4 = newInstance(tc, DummyInterface.class);
+
+        /* With reflector1 */
+        Assertions.assertEquals(reflector1, reflector2);
+        Assertions.assertEquals(reflector1, reflector3);
+        Assertions.assertEquals(reflector1, reflector4);
+
+        /* With reflector2 */
+        Assertions.assertEquals(reflector2, reflector3);
+        Assertions.assertEquals(reflector2, reflector4);
+
+        /* With reflector3 */
+        Assertions.assertEquals(reflector3, reflector4);
+    }
+
     @Test
     public void testAllPublicMethodReflector() {
         ClassWrapper<TestClass3> tc = wrapClass(TestClass3.class).construct();
@@ -33,15 +62,16 @@ public class MethodReflectorTester {
         TestClass3n4Reflector reflectorImpl = reflector.getReflector();
         Assertions.assertEquals(tc.invokeMethod("a", String.class), reflectorImpl.a());
         Assertions.assertEquals(tc.invokeMethod("b", int.class).intValue(), reflectorImpl.b());
-        Assertions.assertNull(tc.invokeMethod("c", void.class));
+        reflectorImpl.c();
         Assertions.assertEquals(tc.invokeMethod("d", char.class).charValue(), reflectorImpl.d());
         Assertions.assertEquals(tc.invokeMethod("e", String.class, eParams), reflectorImpl.e(3, "a", 'a'));
+        Assertions.assertEquals(tc.invokeMethod("e", String.class, eParams), reflectorImpl.altE(3, "a", 'a'));
     }
 
     @Test
     public void testMethodReflectorFactoryClassName() {
         String EXPECTED = "eu.mikroskeem.shuriken.instrumentation.methodreflector." +
-                "Target$TestClass3$MethodReflectorTester$TestClass3n4Reflector$0";
+                "Target$TestClass3$MethodReflectorTester$DummyInterface2$0";
 
         TestClass3 tc = new TestClass3();
         ClassWrapper<TestClass3> tcWrap = wrapInstance(tc);
@@ -53,7 +83,7 @@ public class MethodReflectorTester {
         String className = mrf.invokeMethod("generateName",
                 String.class,
                 TypeWrapper.of(tcWrap),
-                TypeWrapper.of(TestClass3n4Reflector.class));
+                TypeWrapper.of(DummyInterface2.class));
         Assertions.assertEquals(EXPECTED, className, "Class names should equal");
     }
 
@@ -86,15 +116,93 @@ public class MethodReflectorTester {
         Assertions.assertArrayEquals(EXPECTED, reflectorImpl.a());
     }
 
+    @Test
+    public void testFieldGetterMethodReflector() {
+        ClassWrapper<TestClass6> tc = wrapClass(TestClass6.class).construct();
+        MethodReflector<TestClass6Reflector> reflector = newInstance(tc, TestClass6Reflector.class);
+
+        TestClass6Reflector reflectorImpl = reflector.getReflector();
+        Assertions.assertEquals("abcdef", reflectorImpl.getA());
+        Assertions.assertEquals("c", reflectorImpl.getB());
+        Assertions.assertEquals("d", reflectorImpl.getFinalC());
+    }
+
+    @Test
+    public void testFieldSetterMethodReflector() {
+        ClassWrapper<TestClass6> tc = wrapClass(TestClass6.class).construct();
+        MethodReflector<TestClass6Reflector> reflector = newInstance(tc, TestClass6Reflector.class);
+
+        TestClass6Reflector reflectorImpl = reflector.getReflector();
+        reflectorImpl.setB("d");
+        Assertions.assertEquals("d", reflectorImpl.getB());
+
+        reflectorImpl.setD("j");
+        Assertions.assertEquals("j", reflectorImpl.getD());
+    }
+
+    @Test
+    public void testFinalFieldSetterMethodReflector() {
+        ClassWrapper<TestClass6> tc = wrapClass(TestClass6.class).construct();
+        MethodReflector<TestClass6Reflector> reflector = newInstance(tc, TestClass6Reflector.class);
+
+        TestClass6Reflector reflectorImpl = reflector.getReflector();
+
+        reflectorImpl.setFinalC("e");
+        Assertions.assertEquals("e", reflectorImpl.getFinalC());
+
+        reflectorImpl.setFinalF("i");
+        Assertions.assertEquals("i", reflectorImpl.getFinalF());
+    }
+
+    @Test
+    public void testClassConstruction() {
+        ClassWrapper<TestClass7> tc = wrapClass(TestClass7.class);
+        MethodReflector<TestClass7Reflector> reflector = newInstance(tc, TestClass7Reflector.class);
+
+        TestClass7Reflector reflectorImpl = reflector.getReflector();
+        Assertions.assertEquals(TestClass7.class, reflectorImpl.New().getClass());
+        Assertions.assertEquals(TestClass7.class, reflectorImpl.New("a", "b", "c").getClass());
+        Assertions.assertEquals(TestClass7.class, reflectorImpl.New("a").getClass());
+        Assertions.assertEquals(TestClass7.class, reflectorImpl.New('a', -1).getClass());
+    }
+
+    public interface DummyInterface {}
+    public interface DummyInterface2 {}
+
     public interface TestClass3n4Reflector {
         String a();
         int b();
         void c();
         char d();
         String e(int a, String b, char c);
+
+        @TargetMethod("e") String altE(int a, String b, char c);
     }
 
     public interface TestClass5Reflector {
         byte[] a();
+    }
+
+    public interface TestClass6Reflector {
+        @TargetFieldGetter("a") String getA();
+
+        @TargetFieldGetter("b") String getB();
+        @TargetFieldSetter("b") void setB(String b);
+
+        @TargetFieldGetter("c") String getFinalC();
+        @TargetFieldSetter("c") void setFinalC(String c);
+
+        @TargetFieldGetter("d") String getD();
+        @TargetFieldSetter("d") void setD(String d);
+
+        @TargetFieldGetter("f") String getFinalF();
+        @TargetFieldSetter("f") void setFinalF(String F);
+    }
+
+    public interface TestClass7Reflector {
+        @TargetConstructor TestClass7 New();
+        @TargetConstructor TestClass7 New(String a, String b, String c);
+        @TargetConstructor TestClass7 New(String a);
+        @TargetConstructor TestClass7 New(char c, int i);
     }
 }
