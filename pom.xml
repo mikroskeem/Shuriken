@@ -28,6 +28,7 @@
         <project.java.version>1.8</project.java.version>
         <junit.jupiter.version>5.0.0-M4</junit.jupiter.version>
         <junit.platform.version>1.0.0-M4</junit.platform.version>
+        <jmh.version>1.19</jmh.version>
     </properties>
 
     <!-- Repositories -->
@@ -155,6 +156,20 @@
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
             <version>${junit.jupiter.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- JMH -->
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-core</artifactId>
+            <version>${jmh.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-generator-annprocess</artifactId>
+            <version>${jmh.version}</version>
             <scope>test</scope>
         </dependency>
 
