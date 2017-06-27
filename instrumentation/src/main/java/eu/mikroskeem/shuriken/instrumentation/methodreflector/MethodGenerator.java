@@ -23,14 +23,14 @@ final class MethodGenerator {
     final static String MH_ARRAY = "[L" + MH + ";";
 
     /* Generates appropriate constructor for class */
-    static void generateConstructor(ClassVisitor classVisitor, boolean UseInstance, boolean useMH,
+    static void generateConstructor(ClassVisitor classVisitor, boolean useInstance, boolean useMH,
                                     String proxyClassInternal, String targetClassInternal) {
-        if(UseInstance || useMH) {
+        if(useInstance || useMH) {
             /* Figure out what descriptor to use */
             String descriptor;
-            if(UseInstance && useMH) {
+            if(useInstance && useMH) {
                 descriptor = newDescriptor().accepts("L" + targetClassInternal + ";", MH_ARRAY).toString();
-            } else if(UseInstance) {
+            } else if(useInstance) {
                 descriptor = newDescriptor().accepts("L" + targetClassInternal + ";").toString();
             } else {
                 descriptor = newDescriptor().accepts(MH_ARRAY).toString();
@@ -42,13 +42,13 @@ final class MethodGenerator {
             mv.visitMethodInsn(INVOKESPECIAL, unqualifyName(Object.class), "<init>", "()V", false);
             mv.visitVarInsn(ALOAD, 0);
 
-            if(UseInstance && useMH) {
+            if(useInstance && useMH) {
                 mv.visitVarInsn(ALOAD, 1);
                 mv.visitFieldInsn(PUTFIELD, proxyClassInternal, "ref", "L" + targetClassInternal + ";");
                 mv.visitVarInsn(ALOAD, 0);
                 mv.visitVarInsn(ALOAD, 2);
                 mv.visitFieldInsn(PUTFIELD, proxyClassInternal, "mh", MH_ARRAY);
-            } else if(UseInstance) {
+            } else if(useInstance) {
                 mv.visitVarInsn(ALOAD, 1);
                 mv.visitFieldInsn(PUTFIELD, proxyClassInternal, "ref", "L" + targetClassInternal + ";");
             } else {
