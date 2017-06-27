@@ -2,12 +2,15 @@ package eu.mikroskeem.shuriken.reflect;
 
 import eu.mikroskeem.shuriken.reflect.wrappers.TypeWrapper;
 import org.jetbrains.annotations.Contract;
-import sun.misc.Unsafe;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.Map;
 import java.util.Optional;
+import java.util.WeakHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -19,9 +22,11 @@ import java.util.stream.Stream;
  * @author Mark Vainomaa
  */
 public class Reflect {
-    /** The instance of {@link Unsafe}. Might be null on unsupported JVMs */
-    public final static Unsafe THE_UNSAFE = Reflect.wrapClass(Unsafe.class).getField("theUnsafe", Unsafe.class)
-            .map(FieldWrapper::read).orElse(null);
+    /** Wrapped class cache */
+    private final static Map<ClassEntry, Class<?>> FOUND_CLASS_MAP;
+
+    /** The instance of {@link sun.misc.Unsafe}. Might be null on unsupported JVMs */
+    public final static Object THE_UNSAFE;
 
     /**
      * Private constructor, do not use
@@ -37,7 +42,8 @@ public class Reflect {
      * @param <T> Class type
      * @return ClassWrapper instance
      */
-    @Contract("_ -> !null")
+    @Contract("null -> fail")
+    @NotNull
     public static <T> ClassWrapper<T> wrapClass(Class<T> clazz) {
         return ClassWrapper.of(clazz);
     }
@@ -49,6 +55,7 @@ public class Reflect {
      * @param <T> Class type
      * @return ClassWrapper instance
      */
+    @Contract("null -> fail")
     @SuppressWarnings("unchecked")
     public static <T> ClassWrapper<T> wrapInstance(T instance) {
         if(instance == null) throw new IllegalStateException("Instance shouldn't be null!");
@@ -75,13 +82,22 @@ public class Reflect {
     @Contract("null, _ -> fail")
     public static Optional<ClassWrapper<?>> getClass(String name, ClassLoader classLoader) {
         if(name == null) throw new IllegalStateException("Class name shouldn't be null!");
-        try {
+        Class<?> found = FOUND_CLASS_MAP.compute(new ClassEntry(name, classLoader), (e, c) -> {
+            Class<?> clazz;
             if(classLoader != null) {
-                return Optional.of(ClassWrapper.of(Class.forName(name, true, classLoader)));
+                clazz = Reflect.Utils.classForName(name, true, classLoader);
             } else {
-                return Optional.of(ClassWrapper.of(Class.forName(name)));
+                clazz = Reflect.Utils.classForName(name);
             }
-        } catch (ClassNotFoundException e) {
+
+            if(clazz != null) e.classLoader = clazz.getClassLoader();
+
+            return clazz;
+        });
+
+        if(found != null) {
+            return Optional.of(wrapClass(found));
+        } else {
             return Optional.empty();
         }
     }
@@ -109,26 +125,44 @@ public class Reflect {
             throw Utils.<RuntimeException>_throwException(t);
         }
 
+        @Contract("_ -> fail")
         @SuppressWarnings("unchecked")
         private static <T extends Throwable> T _throwException(Throwable t) throws T {
             throw (T) t;
         }
 
+        @Nullable
         static Field setFieldAccessible(Field field) {
-            if(!field.isAccessible()) field.setAccessible(true);
-            return field;
+            try {
+                if (!field.isAccessible()) field.setAccessible(true);
+                return field;
+            }
+            catch (SecurityException ignored){}
+            return null;
         }
 
+        @Nullable
         static <T> Constructor<T> setConstructorAccessible(Constructor<T> constructor) {
-            if(!constructor.isAccessible()) constructor.setAccessible(true);
-            return constructor;
+            try {
+                if (!constructor.isAccessible()) constructor.setAccessible(true);
+                return constructor;
+            }
+            catch (SecurityException ignored){}
+            return null;
         }
 
+        @Nullable
         static Method setMethodAccessible(Method method) {
-            if(!method.isAccessible()) method.setAccessible(true);
-            return method;
+            try {
+                if (!method.isAccessible()) method.setAccessible(true);
+                return method;
+            }
+            catch (SecurityException ignored){}
+            return null;
         }
 
+        @NotNull
+        @SuppressWarnings("ConstantConditions")
         static <T> Constructor<T> getDeclaredConstructor(Class<T> clazz, Class<?>... args) {
             try {
                 return setConstructorAccessible(clazz.getDeclaredConstructor(args));
@@ -138,6 +172,7 @@ public class Reflect {
             return null;
         }
 
+        @NotNull
         @SuppressWarnings("unchecked")
         static <T> T newInstance(Constructor<T> constructor, Object... args) {
             try {
@@ -151,6 +186,7 @@ public class Reflect {
             return null;
         }
 
+        @NotNull
         static Class<?>[] getAllClasses(TypeWrapper[] typeWrappers) {
             return Stream.of(typeWrappers)
                     .map(TypeWrapper::getType)
@@ -158,11 +194,59 @@ public class Reflect {
                     .toArray(new Class[typeWrappers.length]);
         }
 
+        @NotNull
         static Object[] getAllObjects(TypeWrapper[] typeWrappers) {
             return Stream.of(typeWrappers)
                     .map(TypeWrapper::getValue)
                     .collect(Collectors.toList())
                     .toArray(new Object[typeWrappers.length]);
         }
+
+        @Nullable
+        static Class<?> classForName(String name) {
+            try {
+                return Class.forName(name);
+            }
+            catch (ClassNotFoundException ignored) {}
+            return null;
+        }
+
+        @Nullable
+        static Class<?> classForName(String name, boolean init, ClassLoader classLoader) {
+            try {
+                return Class.forName(name, init, classLoader);
+            }
+            catch (ClassNotFoundException ignored) {}
+            return null;
+        }
+    }
+
+    static class ClassEntry {
+        ClassEntry(@NotNull String className, ClassLoader classLoader) {
+            this.className = className;
+            this.classLoader = classLoader;
+        }
+
+        final String className;
+        ClassLoader classLoader;
+
+        @Override
+        public int hashCode() {
+            int hashCode = className.hashCode() * 11;
+            hashCode = hashCode * (classLoader == null? 1 : classLoader.hashCode());
+            return hashCode;
+        }
+
+        @Override
+        public String toString() {
+            return "ClassEntry{className=" + className + ", classLoader=" + classLoader + "}";
+        }
+    }
+
+    static {
+        FOUND_CLASS_MAP = new WeakHashMap<>();
+        THE_UNSAFE = Reflect.getClass("sun.misc.Unsafe")
+                .flatMap(u -> u.getField("theUnsafe", Object.class))
+                .map(FieldWrapper::read).orElse(null);
     }
 }

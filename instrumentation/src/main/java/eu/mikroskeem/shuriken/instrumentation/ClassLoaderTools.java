@@ -2,7 +2,6 @@ package eu.mikroskeem.shuriken.instrumentation;
 
 import eu.mikroskeem.shuriken.common.Ensure;
 import eu.mikroskeem.shuriken.common.SneakyThrow;
-import eu.mikroskeem.shuriken.instrumentation.validate.Validate;
 import eu.mikroskeem.shuriken.reflect.ClassWrapper;
 import eu.mikroskeem.shuriken.reflect.FieldWrapper;
 import eu.mikroskeem.shuriken.reflect.Reflect;
@@ -11,6 +10,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -49,9 +49,12 @@ public final class ClassLoaderTools {
         Ensure.notNull(name, "Name shouldn't be null!");
         Ensure.notNull(data, "Class data shouldn't be null!");
         if(Reflect.THE_UNSAFE != null)
-            return Reflect.THE_UNSAFE.defineClass(name, Validate.checkGeneratedClass(data), 0, data.length, classLoader, null);
-        return Reflect.wrapClass(ClassLoader.class)
-                .setClassInstance(classLoader)
+            return Reflect.wrapInstance(Reflect.THE_UNSAFE)
+                    .invokeMethod("defineClass", Class.class,
+                            of(name), of(byte[].class, data), of(int.class, 0),
+                            of(int.class, data.length), of(ClassLoader.class, classLoader),
+                            of(ProtectionDomain.class, null));
+        return Reflect.wrapInstance(classLoader)
                 .invokeMethod("defineClass", Class.class,
                         of(name), of(byte[].class, data), of(int.class, 0),
                         of(int.class, data.length));
