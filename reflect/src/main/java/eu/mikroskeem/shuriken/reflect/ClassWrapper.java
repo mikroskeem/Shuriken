@@ -233,6 +233,13 @@ public final class ClassWrapper<T> {
     }
 
     @Override
+    public int hashCode() {
+        int result = 61;
+        result = result * 61 + (classInstance == null ? 59 : classInstance.hashCode());
+        return result;
+    }
+
+    @Override
     public String toString() {
         return String.format(
                 "ClassWrapper<%s>{instance=%s}",
