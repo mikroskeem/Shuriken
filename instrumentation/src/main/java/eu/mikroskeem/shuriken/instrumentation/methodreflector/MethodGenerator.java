@@ -1,6 +1,8 @@
 package eu.mikroskeem.shuriken.instrumentation.methodreflector;
 
+import eu.mikroskeem.shuriken.common.Ensure;
 import eu.mikroskeem.shuriken.instrumentation.ClassTools;
+import eu.mikroskeem.shuriken.reflect.PrimitiveType;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
@@ -351,65 +353,125 @@ final class MethodGenerator {
     }
 
     /* Loads parameters into stack with correct instructions */
-    static void loadParams(MethodVisitor methodVisitor, Method method, Class<?>... targetTypes) {
-        /* TODO: Handle target method return type cases as well */
-        if(method.getParameterCount() > 0) {
-            for (int i = 0; i < method.getParameterCount(); i++) {
-                if (method.getParameterTypes()[i].isPrimitive()) {
-                    switch (method.getParameterTypes()[i].getName()) {
-                        case "double":
-                            methodVisitor.visitVarInsn(DLOAD, i + 1);
-                            break;
-                        case "float":
-                            methodVisitor.visitVarInsn(FLOAD, i + 1);
-                            break;
-                        case "long":
-                            methodVisitor.visitVarInsn(LLOAD, i + 1);
-                            break;
-                        case "boolean":
-                        case "byte":
-                        case "short":
-                        case "char":
-                        case "int":
-                            methodVisitor.visitVarInsn(ILOAD, i + 1);
-                            break;
-                        case "void":
-                            break;
+    private static void loadParams(MethodVisitor methodVisitor, Method method, Class<?>... targetTypes) {
+        int paramCount = method.getParameterCount();
+        Ensure.ensureCondition(paramCount == targetTypes.length,
+                "Method and target parameter count don't match!");
+        if(paramCount > 0) {
+            for (int i = 0; i < paramCount; i++) {
+                Class<?> proxyType = method.getParameterTypes()[i];
+                Class<?> targetType = targetTypes[i];
+
+                if(proxyType.isPrimitive()) {
+                    if(!proxyType.getName().equals("void"))
+                        methodVisitor.visitVarInsn(selectLoadInstruction(proxyType.getName()), i + 1);
+
+                    /* Do boxing, if necessary */
+                    if(!targetType.isPrimitive()) {
+                        insertBox(methodVisitor, proxyType);
                     }
                 } else {
                     methodVisitor.visitVarInsn(ALOAD, i + 1);
+
+                    /* Do unboxing, if necessary */
+                    if(targetType.isPrimitive()) {
+                        insertUnbox(methodVisitor, proxyType);
+                    }
                 }
             }
         }
     }
 
-    /* Inserts correct return instruction */
-    static void generateReturn(MethodVisitor methodVisitor, Method method, Class<?> returnType) {
-        /* TODO: Handle return type cases as well */
+    /* Handle return instruction */
+    private static void generateReturn(MethodVisitor methodVisitor, Method method, Class<?> returnType) {
+        /* Primitive types need special return instructions */
         if(method.getReturnType().isPrimitive()) {
-            switch (method.getReturnType().getName()) {
-                case "double":
-                    methodVisitor.visitInsn(DRETURN);
-                    break;
-                case "float":
-                    methodVisitor.visitInsn(FRETURN);
-                    break;
-                case "long":
-                    methodVisitor.visitInsn(LRETURN);
-                    break;
-                case "boolean":
-                case "byte":
-                case "short":
-                case "char":
-                case "int":
-                    methodVisitor.visitInsn(IRETURN);
-                    break;
-                case "void":
-                    methodVisitor.visitInsn(RETURN);
-                    break;
+            if(!returnType.isPrimitive()) {
+                /* Return type must be boxed version of primitive class */
+                if(returnType != Object.class) {
+                    PrimitiveType.ensureBoxed(returnType);
+                } else {
+                    returnType = PrimitiveType.getBoxed(method.getReturnType());
+                }
+
+                /* Box the class */
+                insertBox(methodVisitor, returnType);
+
+                /* Return */
+                methodVisitor.visitInsn(ARETURN);
+            } else {
+                /* Return value directly */
+                methodVisitor.visitInsn(selectReturnInstruction(method.getReturnType().getName()));
             }
         } else {
-            methodVisitor.visitInsn(method.getReturnType() == Void.class ? RETURN : ARETURN);
+            if(!returnType.isPrimitive()) {
+                /* Return value directly */
+                methodVisitor.visitInsn(method.getReturnType() == Void.class ? RETURN : ARETURN);
+            } else {
+                /* Unbox the class, because proxy method's type is primitive */
+                insertUnbox(methodVisitor, method.getReturnType());
+
+                /* Return */
+                methodVisitor.visitInsn(selectReturnInstruction(returnType.getName()));
+            }
         }
+    }
+
+    /* Selects correct load instruction */
+    private static int selectLoadInstruction(String type) {
+        switch (type) {
+            case "double":
+                return DLOAD;
+            case "float":
+                return FLOAD;
+            case "long":
+                return LLOAD;
+            case "boolean":
+            case "byte":
+            case "short":
+            case "char":
+            case "int":
+                return ILOAD;
+            default:
+                throw new IllegalStateException("Unknown primitive type: " + type);
+        }
+    }
+
+    /* Selects correct return instruction */
+    private static int selectReturnInstruction(String type) {
+        switch (type) {
+            case "double":
+                return DRETURN;
+            case "float":
+                return FRETURN;
+            case "long":
+                return LRETURN;
+            case "boolean":
+            case "byte":
+            case "short":
+            case "char":
+            case "int":
+                return IRETURN;
+            case "void":
+                return RETURN;
+            default:
+                throw new IllegalStateException("Unknown primitive type: " + type);
+        }
+    }
+
+    /* Inserts boxing method */
+    private static void insertBox(MethodVisitor methodVisitor, Class<?> primitiveType) {
+        Class<?> boxedType = PrimitiveType.getBoxed(primitiveType);
+        String boxedTypeInternal = ClassTools.unqualifyName(boxedType);
+        String desc = newDescriptor().accepts(primitiveType).returns(boxedType).toString();
+        methodVisitor.visitMethodInsn(INVOKESTATIC, boxedTypeInternal, "valueOf", desc, false);
+    }
+
+    /* Inserts unboxing method */
+    private static void insertUnbox(MethodVisitor methodVisitor, Class<?> boxedType) {
+        Class<?> primitiveType = PrimitiveType.getUnboxed(boxedType);
+        String boxedTypeInternal = ClassTools.unqualifyName(boxedType);
+        String desc = newDescriptor().returns(primitiveType).toString();
+        methodVisitor.visitMethodInsn(INVOKEVIRTUAL, boxedTypeInternal, "intValue", desc, false);
     }
 }

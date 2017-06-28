@@ -17,11 +17,11 @@ public @interface TargetFieldSetter {
     /** Field name */
     String value();
 
-    /*/*
+    /**
      * Field type, like <pre>Ljava/lang/String;</pre>
      *
      * Useful for non-public classes. Use {@link Object} in place of parameter types in
      * interface method if defined.
-     * /
-    String type() default "";*/
+     */
+    String type() default "";
 }

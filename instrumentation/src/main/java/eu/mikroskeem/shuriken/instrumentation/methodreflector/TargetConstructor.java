@@ -14,11 +14,11 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface TargetConstructor {
-    /*/*
+    /**
      * Target constructor description, like <pre>Ljava/lang/String;</pre>
      *
      * Useful for non-public classes. Use {@link Object} in place of given parameters in
      * interface method if defined.
-     * /
-    String desc() default "";*/
+     */
+    String desc() default "";
 }

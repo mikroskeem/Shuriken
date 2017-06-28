@@ -140,41 +140,40 @@ final class MethodReflectorFactory {
                 }
 
                 /* Generate method */
-                if(useMH) {
-                    MethodHandle methodHandle;
-
-                    /* Try to look up method handle */
-                    try {
+                try {
+                    if(useMH) {
+                        /* Try to look up method handle */
                         if(!targetClassField.isAccessible()) targetClassField.setAccessible(true);
-                        methodHandle = isSetter? mhLookup.unreflectSetter(targetClassField) :
+                        MethodHandle methodHandle = isSetter? mhLookup.unreflectSetter(targetClassField) :
                                 mhLookup.unreflectGetter(targetClassField);
-                    } catch (IllegalAccessException e) {
-                        generateFailedMethod(classWriter, intfMethod, FAILED_TO_UNREFLECT + targetClassField);
-                        continue;
-                    }
 
-                    /* Add MethodHandle into MethodHandles array */
-                    methodHandles.add(methodHandle);
+                        /* Add MethodHandle into MethodHandles array */
+                        methodHandles.add(methodHandle);
 
-                    if(isSetter) {
-                        generateFieldWriteMHMethod(classWriter, intfMethod, targetClassField,
-                                proxyClassInternalName, targetClassInternalName,
-                                useInstance, methodHandles.size() - 1);
+                        if(isSetter) {
+                            generateFieldWriteMHMethod(classWriter, intfMethod, targetClassField,
+                                    proxyClassInternalName, targetClassInternalName,
+                                    useInstance, methodHandles.size() - 1);
+                        } else {
+                            generateFieldReadMHMethod(classWriter, intfMethod, targetClassField,
+                                    proxyClassInternalName, targetClassInternalName,
+                                    useInstance, methodHandles.size() - 1);
+                        }
                     } else {
-                        generateFieldReadMHMethod(classWriter, intfMethod, targetClassField,
-                                proxyClassInternalName, targetClassInternalName,
-                                useInstance, methodHandles.size() - 1);
+                        if(isSetter) {
+                            generateFieldWriteMethod(classWriter, intfMethod, targetClassField,
+                                    proxyClassInternalName, targetClassInternalName,
+                                    useInstance);
+                        } else {
+                            generateFieldReadMethod(classWriter, intfMethod, targetClassField,
+                                    proxyClassInternalName, targetClassInternalName,
+                                    useInstance);
+                        }
                     }
-                } else {
-                    if(isSetter) {
-                        generateFieldWriteMethod(classWriter, intfMethod, targetClassField,
-                                proxyClassInternalName, targetClassInternalName,
-                                useInstance);
-                    } else {
-                        generateFieldReadMethod(classWriter, intfMethod, targetClassField,
-                                proxyClassInternalName, targetClassInternalName,
-                                useInstance);
-                    }
+                } catch (IllegalStateException e) {
+                    generateFailedMethod(classWriter, intfMethod, e.getMessage());
+                } catch (IllegalAccessException e) {
+                    generateFailedMethod(classWriter, intfMethod, FAILED_TO_UNREFLECT + targetClassField);
                 }
 
                 /* Start loop from beginning, code below is meant for method proxy */
@@ -201,26 +200,26 @@ final class MethodReflectorFactory {
                 }
 
                 /* Generate proxy method */
-                if(useMH) {
-                    MethodHandle methodHandle;
-                    try {
+                try {
+                    if(useMH) {
                         if(!classTargetConstructor.isAccessible()) classTargetConstructor.setAccessible(true);
-                        methodHandle = mhLookup.unreflectConstructor(classTargetConstructor);
-                    } catch (IllegalAccessException e) {
-                        generateFailedMethod(classWriter, intfMethod, FAILED_TO_UNREFLECT + classTargetConstructor);
-                        continue;
+                        MethodHandle methodHandle = mhLookup.unreflectConstructor(classTargetConstructor);
+
+                        /* Add MethodHandle into MethodHandles array */
+                        methodHandles.add(methodHandle);
+
+                        /* Generate proxy method using MethodHandle */
+                        generateConstructorMHMethod(classWriter, intfMethod, classTargetConstructor,
+                                proxyClassInternalName, targetClassInternalName,
+                                methodHandles.size() - 1);
+                    } else {
+                        generateConstructorMethod(classWriter, intfMethod, classTargetConstructor,
+                                proxyClassInternalName, targetClassInternalName);
                     }
-
-                    /* Add MethodHandle into MethodHandles array */
-                    methodHandles.add(methodHandle);
-
-                    /* Generate proxy method using MethodHandle */
-                    generateConstructorMHMethod(classWriter, intfMethod, classTargetConstructor,
-                            proxyClassInternalName, targetClassInternalName,
-                            methodHandles.size() - 1);
-                } else {
-                    generateConstructorMethod(classWriter, intfMethod, classTargetConstructor,
-                            proxyClassInternalName, targetClassInternalName);
+                } catch (IllegalStateException e) {
+                    generateFailedMethod(classWriter, intfMethod, e.getMessage());
+                } catch (IllegalAccessException e) {
+                    generateFailedMethod(classWriter, intfMethod, FAILED_TO_UNREFLECT + classTargetConstructor);
                 }
 
                 /* Start loop from beginning, code below is meant for method proxy */
@@ -276,29 +275,29 @@ final class MethodReflectorFactory {
             }
 
             /* Generate proxy method */
-            if(useMH) {
-                MethodHandle methodHandle;
-
-                /* Try to look up method handle */
-                try {
+            try {
+                if(useMH) {
+                    /* Try to look up method handle */
                     if(!targetClassMethod.isAccessible()) targetClassMethod.setAccessible(true);
-                    methodHandle = mhLookup.unreflect(targetClassMethod);
-                } catch (IllegalAccessException e) {
-                    generateFailedMethod(classWriter, intfMethod, FAILED_TO_UNREFLECT + targetClassMethod);
-                    continue;
+                    MethodHandle methodHandle = mhLookup.unreflect(targetClassMethod);
+
+                    /* Add MethodHandle into MethodHandles array */
+                    methodHandles.add(methodHandle);
+
+                    /* Generate proxy method using MethodHandle */
+                    generateProxyMHMethod(classWriter, intfMethod, targetClassMethod,
+                            proxyClassInternalName, targetClassInternalName,
+                            useInstance, methodHandles.size() - 1);
+                } else {
+                    generateProxyMethod(classWriter, intfMethod, targetClassMethod,
+                            proxyClassInternalName, targetClassInternalName,
+                            useInstance, useInterface);
                 }
-
-                /* Add MethodHandle into MethodHandles array */
-                methodHandles.add(methodHandle);
-
-                /* Generate proxy method using MethodHandle */
-                generateProxyMHMethod(classWriter, intfMethod, targetClassMethod,
-                        proxyClassInternalName, targetClassInternalName,
-                        useInstance, methodHandles.size() - 1);
-            } else {
-                generateProxyMethod(classWriter, intfMethod, targetClassMethod,
-                        proxyClassInternalName, targetClassInternalName,
-                        useInstance, useInterface);
+            } catch (IllegalStateException e) {
+                /* Something failed, whoops */
+                generateFailedMethod(classWriter, intfMethod, e.getMessage());
+            } catch (IllegalAccessException e) {
+                generateFailedMethod(classWriter, intfMethod, FAILED_TO_UNREFLECT + targetClassMethod);
             }
         }
 

@@ -6,7 +6,10 @@ import eu.mikroskeem.shuriken.reflect.Reflect;
 import eu.mikroskeem.shuriken.reflect.wrappers.TypeWrapper;
 import eu.mikroskeem.test.shuriken.instrumentation.testclasses.*;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static eu.mikroskeem.shuriken.instrumentation.methodreflector.MethodReflector.newInstance;
 import static eu.mikroskeem.shuriken.reflect.Reflect.wrapClass;
@@ -198,6 +201,47 @@ public class MethodReflectorTester {
         Assertions.assertEquals(TestClass7.class, reflectorImpl.New('a', -1).getClass());
     }
 
+    @Test
+    public void testGenericsReflection() {
+        ClassWrapper<TestClass9> tc = wrapClass(TestClass9.class).construct();
+        MethodReflector<TestClass9Reflector> reflector = newInstance(tc, TestClass9Reflector.class);
+
+        TestClass9Reflector reflectorImpl = reflector.getReflector();
+        Assertions.assertEquals("a", reflectorImpl.getA().get(0));
+
+        /*
+         * Note: Fucking type erasure
+         * https://en.wikipedia.org/wiki/Generics_in_Java#Problems_with_type_erasure
+         */
+        //noinspection AssertEqualsBetweenInconvertibleTypes
+        Assertions.assertEquals("a", reflectorImpl.getAFaulty().get(0));
+    }
+
+    @Test
+    @Disabled("Not implemented yet.")
+    public void testReflectUsingObjects() {
+        ClassWrapper<TestClass4> tc = wrapClass(TestClass4.class).construct();
+        MethodReflector<TestClass4ObjectReflector> reflector = newInstance(tc, TestClass4ObjectReflector.class);
+
+        TestClass4ObjectReflector reflectorImpl = reflector.getReflector();
+        Assertions.assertEquals(String.class, reflectorImpl.a().getClass());
+        Assertions.assertEquals(int.class, reflectorImpl.b().getClass());
+        Assertions.assertEquals(String.class, reflectorImpl.e(1, "a", 'a').getClass());
+        Assertions.assertEquals(String.class, reflectorImpl.altE(1, "a", 'a').getClass());
+    }
+
+    @Test
+    @Disabled("Not implemented yet.")
+    public void testBoxingProxy() {
+
+    }
+
+    @Test
+    @Disabled("Not implemented yet.")
+    public void testUnboxingProxy() {
+
+    }
+
     public interface DummyInterface {}
     public interface DummyInterface2 {}
 
@@ -255,5 +299,23 @@ public class MethodReflectorTester {
 
     public interface TestClass8StaticReflector {
         String d();
+    }
+
+    public interface TestClass4ObjectReflector {
+        @TargetMethod(desc = "()Ljava/lang/String;") Object a();
+        @TargetMethod(desc = "()I") Object b();
+
+        /* All objects */
+        @TargetMethod(desc = "(ILjava/lang/String;C)Ljava/lang/String;")
+        Object e(Object a, Object b, Object c);
+
+        /* Only some objects */
+        @TargetMethod(value = "e", desc = "(ILjava/lang/String;C)Ljava/lang/String;")
+        String altE(int a, String b, Object c);
+    }
+
+    public interface TestClass9Reflector {
+        @TargetFieldGetter("a") List<String> getA();
+        @TargetFieldGetter("a") List<Integer> getAFaulty();
     }
 }
