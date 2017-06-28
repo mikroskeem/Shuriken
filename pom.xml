@@ -54,6 +54,44 @@
         </snapshotRepository>
     </distributionManagement>
 
+    <!-- Profiles -->
+    <profiles>
+        <!-- Unit test skip profile -->
+        <profile>
+            <id>skip-unit-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>2.19.1</version>
+                        <configuration>
+                            <skipTests>true</skipTests>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <!-- Benchmarking profile -->
+        <profile>
+            <id>do-benchmarks</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>2.19.1</version>
+                        <configuration>
+                            <includes>
+                                <include>**/*Benchmark.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+                <defaultGoal>test</defaultGoal>
+            </build>
+        </profile>
+    </profiles>
+
     <build>
         <plugins>
             <!-- Compiler configuration -->

@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * @author Mark Vainomaa
  */
-public class MethodReflectorVsReflectTester {
+public class InvocationBenchmark {
     @Test
     public void launchBenchmark() throws Exception {
         Options opt = new OptionsBuilder()
@@ -26,7 +26,7 @@ public class MethodReflectorVsReflectTester {
                 .warmupTime(TimeValue.seconds(5))
                 .warmupIterations(2)
                 .measurementTime(TimeValue.seconds(1))
-                .measurementIterations(2)
+                .measurementIterations(10)
                 .threads(4)
                 .forks(2)
                 .shouldFailOnError(true)
@@ -56,6 +56,13 @@ public class MethodReflectorVsReflectTester {
     @OutputTimeUnit(TimeUnit.MILLISECONDS)
     public void testMethodReflectorMH(MethodReflectorMHBench mhBench, Blackhole blackhole) {
         blackhole.consume(mhBench.reflectorImpl.b());
+    }
+
+    @Benchmark
+    @BenchmarkMode(Mode.Throughput)
+    @OutputTimeUnit(TimeUnit.MILLISECONDS)
+    public void testNative(NativeBench bench, Blackhole blackhole) {
+        blackhole.consume(bench.tc.a());
     }
 
     @State(Scope.Benchmark)
@@ -93,6 +100,16 @@ public class MethodReflectorVsReflectTester {
             tc = Reflect.wrapInstance(new TestClass());
             reflector = MethodReflector.newInstance(tc, TestClassReflector.class);
             reflectorImpl = reflector.getReflector();
+        }
+    }
+
+    @State(Scope.Benchmark)
+    public static class NativeBench {
+        TestClass tc;
+
+        @Setup(Level.Trial)
+        public void setup() {
+            tc = new TestClass();
         }
     }
 
