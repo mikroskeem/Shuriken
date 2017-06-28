@@ -5,12 +5,12 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.lang.reflect.*;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * Wrap class
@@ -20,10 +20,52 @@ import java.util.stream.Stream;
  * @author Mark Vainomaa
  */
 public final class ClassWrapper<T> {
+    /* Method cache */
+    private final Map<MethodInfo, Integer> METHOD_INDEX = new HashMap<>();
+    private final Map<Integer, Method> METHOD_CACHE = new HashMap<>();
+
+    /* Field cache */
+    private final Map<FieldInfo, Integer> FIELD_INDEX = new HashMap<>();
+    private final Map<Integer, Field> FIELD_CACHE = new HashMap<>();
+    private final Map<Integer, FieldWrapper<?>> FIELDWRAPPER_CACHE = new HashMap<>();
+
     /* Private constructor */
     private ClassWrapper(Class<T> wrappedClass) {
         if(wrappedClass == null) throw new IllegalStateException("Wrapped class shouldn't be null!");
         this.wrappedClass = wrappedClass;
+
+        /* Build method cache */
+        Method[] declaredMethods = wrappedClass.getDeclaredMethods();
+        Map<MethodInfo, Method> extraMethods = new HashMap<>();
+        for (int i = 0; i <= declaredMethods.length-1; i++) {
+            Method method = Reflect.Utils.setMethodAccessible(declaredMethods[i]);
+            if(method == null) continue;
+            if(method.getReturnType().isPrimitive()) {
+                MethodInfo nonPrimitiveMethodInfo = new MethodInfo(
+                        method.getName(),
+                        PrimitiveType.ensureBoxed(method.getReturnType()),
+                        method.getParameterTypes()
+                );
+                extraMethods.put(nonPrimitiveMethodInfo, method);
+            }
+            METHOD_INDEX.put(MethodInfo.of(method), i);
+            METHOD_CACHE.put(i, method);
+        }
+        extraMethods.forEach((i, m) -> {
+            int index = METHOD_INDEX.size();
+            METHOD_INDEX.put(i, index);
+            METHOD_CACHE.put(index, m);
+        });
+
+        /* Build field cache */
+        Field[] declaredFields = wrappedClass.getDeclaredFields();
+        for (int i = 0; i <= declaredFields.length-1; i++) {
+            Field field = Reflect.Utils.setFieldAccessible(declaredFields[i]);
+            if(field == null) continue;
+            FieldInfo fieldInfo = FieldInfo.of(field);
+            FIELD_INDEX.put(fieldInfo, i);
+            FIELD_CACHE.put(i, field);
+        }
     }
 
     private final Class<T> wrappedClass;
@@ -57,6 +99,7 @@ public final class ClassWrapper<T> {
      *
      * @return Wrapped {@link Class}
      */
+    @Contract(pure = true)
     public Class<T> getWrappedClass() {
         return wrappedClass;
     }
@@ -67,6 +110,7 @@ public final class ClassWrapper<T> {
      * @return Class instance
      */
     @Nullable
+    @Contract(pure = true)
     public T getClassInstance() {
         return classInstance;
     }
@@ -106,24 +150,32 @@ public final class ClassWrapper<T> {
      * @return {@link FieldWrapper} object or empty, if field wasn't found
      */
     @Contract("null, null -> fail")
+    @SuppressWarnings("unchecked")
     public <V> Optional<FieldWrapper<V>> getField(String fieldName, Class<V> type) {
         /* Check arguments */
         if(fieldName == null) throw new IllegalStateException("Field name shouldn't be null!");
         if(type == null) throw new IllegalStateException("Field type shouldn't be null!");
 
+        /* Try to find cached field */
+        FieldInfo fieldInfo = new FieldInfo(fieldName, type);
+
         /* Get field */
-        Class<?> cls = wrappedClass;
-        Field field;
-        do {
-            field = Arrays.stream(cls.getDeclaredFields())
-                    .filter(f -> fieldName.equals(f.getName()) && (type == Object.class || f.getType() == type))
-                    .findFirst().orElse(null);
-        } while (field == null && (cls = cls.getSuperclass()) != null);
+        Field field = null;
+        Integer found = FIELD_INDEX.get(fieldInfo);
+        if(found != null) {
+            Field foundField = FIELD_CACHE.get(found);
+            if(foundField != null) {
+                field = foundField;
+            }
+        } else {
+            field = findDeclaredField(fieldName, type);
+        }
         if(field == null) return Optional.empty();
 
-        /* Set field accessible, if it is not already */
-        Reflect.Utils.setFieldAccessible(field);
-        return Optional.of(MethodHandleFieldWrapper.of(this, field, type));
+        /* Wrap field */
+        final Field _field = field;
+        return Optional.of((FieldWrapper<V>)FIELDWRAPPER_CACHE.computeIfAbsent(found,
+                k -> MethodHandleFieldWrapper.of(this, _field, type)));
     }
 
     /**
@@ -144,9 +196,9 @@ public final class ClassWrapper<T> {
      * @return List of fields
      */
     public List<FieldWrapper<?>> getFields() {
-        return Stream.of(wrappedClass.getDeclaredFields())
-                .map(Reflect.Utils::setFieldAccessible)
-                .map(field -> MethodHandleFieldWrapper.of(this, field))
+        return FIELD_INDEX.values().stream()
+                .map(index -> FIELDWRAPPER_CACHE.computeIfAbsent(index, k ->
+                        MethodHandleFieldWrapper.of(this, FIELD_CACHE.get(index))))
                 .collect(Collectors.toList());
     }
 
@@ -167,47 +219,29 @@ public final class ClassWrapper<T> {
         if(methodName == null) throw new IllegalStateException("Method name shouldn't be null!");
         if(returnType == null) throw new IllegalStateException("Method return type shouldn't be null!");
 
-        /* Convert typewrapper */
+        /* Convert TypeWrapper types */
         Class<?>[] tArgs = Reflect.Utils.getAllClasses(args);
         Object[] mArgs = Reflect.Utils.getAllObjects(args);
 
+        /* Try to find cached method */
+        MethodInfo methodInfo = new MethodInfo(methodName, returnType, tArgs);
+
         /* Find method */
-        Class<?> cls = wrappedClass;
-        Method method;
-        final Class<V> _returnType = returnType;
-        do {
-            method = Arrays.stream(cls.getDeclaredMethods())
-                    .filter(m -> {
-                        if(methodName.equals(m.getName())) {
-                            if(Arrays.equals(m.getParameterTypes(), tArgs)) {
-                                if(m.getReturnType() != Object.class) {
-                                    Class<?> theReturn = _returnType;
-                                    Class<?> theMethodReturn = m.getReturnType();
-                                    if(theReturn.isPrimitive()) {
-                                        theReturn = PrimitiveType.getBoxed(theReturn);
-                                    }
-                                    if(theMethodReturn.isPrimitive()) {
-                                        theMethodReturn = PrimitiveType.getBoxed(theMethodReturn);
-                                    }
-                                    return theReturn == theMethodReturn;
-                                } else {
-                                    return true;
-                                }
-                            }
-                        }
-                        return false;
-                    })
-                    .findFirst().orElse(null);
-        } while (method == null && (cls = cls.getSuperclass()) != null);
-        if(method == null) Reflect.Utils.throwException(new NoSuchMethodException(methodName));
+        Method method = null;
+        Integer found = METHOD_INDEX.get(methodInfo);
+        if(found != null) {
+            Method foundMethod = METHOD_CACHE.get(found);
+            if(foundMethod != null) {
+                method = foundMethod;
+            }
+        } else {
+            method = findDeclaredMethod(methodName, returnType, tArgs);
+        }
 
         /* Do method modifier checks */
         if(!Modifier.isStatic(method.getModifiers()) && getClassInstance() == null) {
             throw new IllegalStateException(String.format("'%s' requires class instance to be set!", method));
         }
-
-        /* Set method accessible, if it is not already */
-        Reflect.Utils.setMethodAccessible(method);
 
         /* Check return type */
         Class<?> returnTypeClazz = method.getReturnType();
@@ -246,5 +280,141 @@ public final class ClassWrapper<T> {
                 wrappedClass.toString(),
                 classInstance != null? classInstance.toString() : "null"
         );
+    }
+
+    /* Finds declared method from given class and its superclasses */
+    @NotNull
+    private Method findDeclaredMethod(String methodName, Class<?> returnType, Class<?>[] params) {
+        Class<?> cls = wrappedClass;
+        Method theMethod;
+        do {
+            theMethod = Arrays.stream(cls.getDeclaredMethods())
+                    .filter(m -> {
+                        if(methodName.equals(m.getName())) {
+                            if(Arrays.equals(m.getParameterTypes(), params)) {
+                                if(m.getReturnType() != Object.class) {
+                                    Class<?> theReturn = returnType;
+                                    Class<?> theMethodReturn = m.getReturnType();
+                                    if(theReturn.isPrimitive()) {
+                                        theReturn = PrimitiveType.getBoxed(theReturn);
+                                    }
+                                    if(theMethodReturn.isPrimitive()) {
+                                        theMethodReturn = PrimitiveType.getBoxed(theMethodReturn);
+                                    }
+                                    return theReturn == theMethodReturn;
+                                } else {
+                                    return true;
+                                }
+                            }
+                        }
+                        return false;
+                    })
+                    .findFirst().orElse(null);
+        } while (theMethod == null && (cls = cls.getSuperclass()) != null);
+        if(theMethod == null) Reflect.Utils.throwException(new NoSuchMethodException(methodName));
+        return theMethod;
+    }
+
+    /* Finds declared field from given class and its superclasses */
+    @Nullable
+    private Field findDeclaredField(String fieldName, Class<?> type) {
+        Class<?> cls = wrappedClass;
+        Field field;
+        do {
+            field = Arrays.stream(cls.getDeclaredFields())
+                    .filter(f -> fieldName.equals(f.getName()) && (type == Object.class || f.getType() == type))
+                    .findFirst().orElse(null);
+        } while (field == null && (cls = cls.getSuperclass()) != null);
+        return field;
+    }
+
+    /* Method info, used in cache */
+    private static class MethodInfo {
+        MethodInfo(@NotNull String methodName, @NotNull Class<?> returnType,
+                   @NotNull Class<?>[] params) {
+            this.methodName = methodName;
+            this.returnType = returnType;
+            this.params = params;
+        }
+
+        final String methodName;
+        final Class<?> returnType;
+        final Class<?>[] params;
+
+        static MethodInfo of(Method method) {
+            return new MethodInfo(method.getName(),
+                    method.getReturnType(), method.getParameterTypes());
+        }
+
+        @Override
+        public int hashCode() {
+            int result = methodName.hashCode();
+            result = 31 * result + returnType.hashCode();
+            result = 31 * result + Arrays.hashCode(params);
+            return result;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if(this == o)
+                return true;
+            if(o == null || getClass() != o.getClass())
+                return false;
+
+            MethodInfo that = (MethodInfo) o;
+
+            if(!methodName.equals(that.methodName))
+                return false;
+            if(!returnType.equals(that.returnType))
+                return false;
+            return Arrays.equals(params, that.params);
+        }
+
+        @Override
+        public String toString() {
+            return "MethodInfo{methodName='" + methodName + '\'' + ", " +
+                    "returnType=" + returnType + ", params=" + Arrays.toString(params) + '}';
+        }
+    }
+
+    /* Field info, used in cache */
+    private static class FieldInfo {
+        final String fieldName;
+        final Class<?> fieldType;
+
+        FieldInfo(@NotNull String fieldName, @NotNull Class<?> fieldType) {
+            this.fieldName = fieldName;
+            this.fieldType = fieldType;
+        }
+
+        static FieldInfo of(Field field) {
+            return new FieldInfo(field.getName(), field.getType());
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if(this == o)
+                return true;
+            if(o == null || getClass() != o.getClass())
+                return false;
+
+            FieldInfo fieldInfo = (FieldInfo) o;
+
+            if(!fieldName.equals(fieldInfo.fieldName))
+                return false;
+            return fieldType.equals(fieldInfo.fieldType);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = fieldName.hashCode();
+            result = 31 * result + fieldType.hashCode();
+            return result;
+        }
+
+        @Override
+        public String toString() {
+            return "FieldInfo{" + "fieldName='" + fieldName + '\'' + ", fieldType=" + fieldType + '}';
+        }
     }
 }

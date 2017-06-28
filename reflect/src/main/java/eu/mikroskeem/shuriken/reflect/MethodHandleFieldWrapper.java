@@ -31,6 +31,9 @@ final class MethodHandleFieldWrapper<T> implements FieldWrapper<T> {
         /* Allow modifying final fields */
         hackFinalField();
 
+        /* Allow field access */
+        Reflect.Utils.setFieldAccessible(field);
+
         /* Set up MethodHandles */
         MethodHandles.Lookup lookup = MethodHandles.lookup();
         MethodType getterType;
