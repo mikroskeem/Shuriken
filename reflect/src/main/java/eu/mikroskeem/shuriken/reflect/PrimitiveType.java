@@ -41,7 +41,7 @@ public enum PrimitiveType {
             if(value.getPrimitiveClass() == primitiveClass)
                 return (Class<V>) value.getBoxedClass();
         }
-        throw new UnsupportedOperationException("Invalid primitive class: " + primitiveClass.getName());
+        throw new IllegalStateException("Invalid primitive class: " + primitiveClass.getName());
     }
 
     /**
@@ -58,7 +58,7 @@ public enum PrimitiveType {
             if(value.getBoxedClass() == boxedClass)
                 return (Class<V>) value.getPrimitiveClass();
         }
-        throw new UnsupportedOperationException("Invalid boxed class: " + boxedClass.getName());
+        throw new IllegalStateException("Invalid boxed class: " + boxedClass.getName());
     }
 
     /**
