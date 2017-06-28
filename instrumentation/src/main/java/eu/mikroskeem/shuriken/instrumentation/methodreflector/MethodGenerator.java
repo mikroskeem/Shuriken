@@ -67,7 +67,7 @@ final class MethodGenerator {
     /* Generates proxy method for public target method */
     static void generateProxyMethod(ClassVisitor visitor, Method method, Method targetMethod,
                                     String proxyClassInternal, String targetClassInternal,
-                                    boolean useInstance) {
+                                    boolean useInstance, boolean useInterface) {
         String descriptor = newDescriptor().accepts(method.getParameterTypes()).returns(method.getReturnType()).toString();
         String targetDescriptor = newDescriptor()
                 .accepts(targetMethod.getParameterTypes())
@@ -85,8 +85,17 @@ final class MethodGenerator {
         /* Load all parameters into stack */
         loadParams(mv, method, targetMethod.getParameterTypes());
 
+        /* Figure out what opcode to use */
+        int opCode = useInterface?
+                (useInstance ? INVOKEINTERFACE : INVOKESTATIC)
+                :
+                (useInstance ? INVOKEVIRTUAL : INVOKESTATIC);
+
+        /* Target class is interface, if we can use interface */
+        if(useInterface) targetClassInternal = ClassTools.unqualifyName(targetMethod.getDeclaringClass());
+
         /* Invoke target method */
-        mv.visitMethodInsn(useInstance? INVOKEVIRTUAL : INVOKESTATIC, targetClassInternal, targetMethod.getName(), targetDescriptor, false);
+        mv.visitMethodInsn(opCode, targetClassInternal, targetMethod.getName(), targetDescriptor, useInterface);
 
         /* Use appropriate return instruction */
         generateReturn(mv, method, targetMethod.getReturnType());

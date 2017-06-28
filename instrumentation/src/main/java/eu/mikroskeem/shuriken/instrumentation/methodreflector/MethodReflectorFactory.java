@@ -247,11 +247,21 @@ final class MethodReflectorFactory {
             }
 
             /* Ensure target method is present */
+            if(targetClassMethod == null && intfMethod.isDefault()) {
+                /* Use interface's default method */
+                continue;
+            }
             Ensure.notNull(targetClassMethod, FAILED_TO_FIND_METHOD + intfMethod);
 
             /* Get needed target method info */
+            boolean useInterface = false;
             boolean useInstance = false;
             boolean useMH = false;
+
+            if(targetClassMethod.getDeclaringClass().isInterface()) {
+                /* INVOKEINTERFACE it is */
+                useInterface = true;
+            }
 
             if(!Modifier.isStatic(targetClassMethod.getModifiers())) {
                 /* Proxy class must use target class instance */
@@ -288,7 +298,7 @@ final class MethodReflectorFactory {
             } else {
                 generateProxyMethod(classWriter, intfMethod, targetClassMethod,
                         proxyClassInternalName, targetClassInternalName,
-                        useInstance);
+                        useInstance, useInterface);
             }
         }
 
@@ -347,15 +357,42 @@ final class MethodReflectorFactory {
         return name.substring(name.lastIndexOf('.') + 1, name.length());
     }
 
-    /* Finds declared method by name, parameters and return type */
-    private Method findDeclaredMethod(Class<?> clazz, String methodName, Class<?>[] parameters, Class<?> returnType) {
-        return Arrays.stream(clazz.getDeclaredMethods()).filter(method ->
-                        method.getName().equals(methodName) &&
-                        Arrays.equals(method.getParameterTypes(), parameters) &&
-                        method.getReturnType() == returnType
-                )
-                .findFirst()
-                .orElse(null);
+    /* Finds declared method by name, parameters and return type. Probably inefficient as fuck */
+    @Nullable
+    private Method findDeclaredMethod(Class<?> clazz, String methodName, Class<?>[] params, Class<?> returnType) {
+        Class<?> scanClass = clazz;
+        Method method;
+        /* Scan superclasses */
+        do {
+            method = Arrays.stream(scanClass.getDeclaredMethods())
+                    .filter(m ->
+                        methodName.equals(m.getName()) &&
+                        Arrays.equals(m.getParameterTypes(), params) &&
+                        m.getReturnType() == returnType
+                    )
+                    .findFirst().orElse(null);
+        } while (method == null && (scanClass = scanClass.getSuperclass()) != null);
+        if(method != null) return method;
+
+        /* No interfaces to scan :( */
+        if(clazz.getInterfaces().length == 0) return null;
+
+        /* Scan interfaces */
+        int i = 0;
+        scanClass = clazz.getInterfaces()[i];
+        do {
+            method = Arrays.stream(scanClass.getDeclaredMethods())
+                    .filter(m ->
+                        methodName.equals(m.getName()) &&
+                        Arrays.equals(m.getParameterTypes(), params) &&
+                        m.getReturnType() == returnType &&
+                        (m.isDefault() || Modifier.isStatic(m.getModifiers()))
+                    )
+                    .findFirst().orElse(null);
+            i++;
+        } while(method == null && i < scanClass.getInterfaces().length &&
+                (scanClass = scanClass.getInterfaces()[i]) != null);
+        return method;
     }
 
     /* Finds method by other method's name, parameters and return type */

@@ -117,6 +117,38 @@ public class MethodReflectorTester {
     }
 
     @Test
+    public void testInterfaceDefaultReflection() {
+        ClassWrapper<TestClass8> tc = wrapClass(TestClass8.class).construct();
+        MethodReflector<TestClass8Reflector> reflector = newInstance(tc, TestClass8Reflector.class);
+
+        TestClass8Reflector reflectorImpl = reflector.getReflector();
+        Assertions.assertEquals("abcd", reflectorImpl.a());
+        Assertions.assertEquals("1234", reflectorImpl.b());
+    }
+
+    @Test
+    public void testReflectiveInterfaceDefaultReflection() {
+        ClassWrapper<TestClass8> tc = wrapClass(TestClass8.class).construct();
+        MethodReflector<TestClass8ReflectorWithDefault> reflector = newInstance(tc, TestClass8ReflectorWithDefault.class);
+
+        TestClass8ReflectorWithDefault reflectorImpl = reflector.getReflector();
+        Assertions.assertNotEquals("cdef", reflectorImpl.a(),
+                "Reflector interface default shouldn't be used!");
+        Assertions.assertEquals("abcd", reflectorImpl.a());
+        Assertions.assertEquals("1234", reflectorImpl.b());
+        Assertions.assertEquals("fghi", reflectorImpl.c());
+    }
+
+    @Test
+    public void testInterfaceStaticReflection() {
+        ClassWrapper<TestClass8> tc = wrapClass(TestClass8.class).construct();
+        MethodReflector<TestClass8StaticReflector> reflector = newInstance(tc, TestClass8StaticReflector.class);
+
+        TestClass8StaticReflector reflectorImpl = reflector.getReflector();
+        Assertions.assertEquals("foobar", reflectorImpl.d());
+    }
+
+    @Test
     public void testFieldGetterMethodReflector() {
         ClassWrapper<TestClass6> tc = wrapClass(TestClass6.class).construct();
         MethodReflector<TestClass6Reflector> reflector = newInstance(tc, TestClass6Reflector.class);
@@ -204,5 +236,24 @@ public class MethodReflectorTester {
         @TargetConstructor TestClass7 New(String a, String b, String c);
         @TargetConstructor TestClass7 New(String a);
         @TargetConstructor TestClass7 New(char c, int i);
+    }
+
+    public interface TestClass8Reflector {
+        String a();
+        String b();
+    }
+
+    public interface TestClass8ReflectorWithDefault {
+        default String a() {
+            return "cdef";
+        }
+        String b();
+        default String c() {
+            return "fghi";
+        }
+    }
+
+    public interface TestClass8StaticReflector {
+        String d();
     }
 }
