@@ -35,7 +35,7 @@ final class MethodReflectorFactory {
     private final static String NO_CLASS_INSTANCE_PRESET = "Interface targets instance methods, but class instance " +
             "is not present in ClassWrapper!";
     private final static String ANNOTATION_ERROR = "Interface method can only have one target or field annotation! ";
-    private final static String FIELD_NAME_IS_NULL = "Field name shouldn't be null!";
+    private final static String FIELD_NAME_IS_NULL = "Field name shouldn't be null or empty!";
     private final static String FAILED_TO_UNREFLECT = "Failed to unreflect target: ";
     private final static String FAILED_TO_FIND_FIELD = "Could not find target field for interface method: ";
     private final static String FAILED_TO_FIND_METHOD = "Could not find target method for interface method: ";
@@ -93,16 +93,16 @@ final class MethodReflectorFactory {
                  * force getters to return type and take no parameters
                  */
                 if(isSetter) {
-                   Ensure.ensureCondition(intfMethod.getReturnType() == void.class,
+                    Ensure.ensureCondition(intfMethod.getReturnType() == void.class,
                            SETTER_WRONG_RETURN_TYPE + intfMethod);
-                   Ensure.ensureCondition(intfMethod.getParameterTypes().length == 1,
+                    Ensure.ensureCondition(intfMethod.getParameterTypes().length == 1,
                            SETTER_WRONG_PARAM_COUNT + intfMethod);
-                   fieldType = intfMethod.getParameterTypes()[0];
+                    fieldType = intfMethod.getParameterTypes()[0];
                 } else {
                     Ensure.ensureCondition(intfMethod.getReturnType() != void.class,
-                            GETTER_WRONG_RETURN_TYPE + intfMethod);
+                           GETTER_WRONG_RETURN_TYPE + intfMethod);
                     Ensure.ensureCondition(intfMethod.getParameterTypes().length == 0,
-                            GETTER_WRONG_PARAM_COUNT + intfMethod);
+                           GETTER_WRONG_PARAM_COUNT + intfMethod);
                     fieldType = intfMethod.getReturnType();
                 }
 
