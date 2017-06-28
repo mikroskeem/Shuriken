@@ -39,12 +39,12 @@ public final class MethodReflector<T> {
     @NotNull
     @Contract("null, null -> fail")
     public static <T> MethodReflector<T> newInstance(ClassWrapper<?> targetClass, Class<T> itf) {
+        Ensure.notNull(targetClass, "Target class shouldn't be null!");
+        Ensure.notNull(itf, "Interface class shoudln't be null!");
         Ensure.ensureCondition(Modifier.isInterface(itf.getModifiers()), "Interface class should be interface!");
         Ensure.ensureCondition(Modifier.isPublic(targetClass.getWrappedClass().getModifiers()), // TODO
                 "Target class should be public!");
         Ensure.ensureCondition(Modifier.isPublic(itf.getModifiers()), "Interface should be public!");
-        Ensure.notNull(targetClass, "Target class shouldn't be null!");
-        Ensure.notNull(itf, "Interface class shoudln't be null!");
         return (MethodReflector<T>) methodReflectors.computeIfAbsent(new Pair<>(targetClass, itf), k ->
             new MethodReflector<>(targetClass, itf)
         );
