@@ -24,17 +24,6 @@ import static org.objectweb.asm.Opcodes.*;
  * @author Mark Vainomaa
  */
 final class MethodGenerator {
-    /* Types from GeneratorAdapter */
-    private static final Type BYTE_TYPE = Type.getObjectType("java/lang/Byte");
-    private static final Type BOOLEAN_TYPE = Type.getObjectType("java/lang/Boolean");
-    private static final Type SHORT_TYPE = Type.getObjectType("java/lang/Short");
-    private static final Type CHARACTER_TYPE = Type.getObjectType("java/lang/Character");
-    private static final Type INTEGER_TYPE = Type.getObjectType("java/lang/Integer");
-    private static final Type FLOAT_TYPE = Type.getObjectType("java/lang/Float");
-    private static final Type LONG_TYPE = Type.getObjectType("java/lang/Long");
-    private static final Type DOUBLE_TYPE = Type.getObjectType("java/lang/Double");
-    private static final Type NUMBER_TYPE = Type.getObjectType("java/lang/Number");
-
     /* Field names */
     final static String REFF = "ref";
     final static String MHF = "mh";
