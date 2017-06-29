@@ -17,6 +17,7 @@ import java.util.WeakHashMap;
 public final class MethodReflector<T> {
     private final static Map<Pair<ClassWrapper<?>, Class<?>>, MethodReflector<?>> methodReflectors = new WeakHashMap<>();
     private final static MethodReflectorFactory factory = new MethodReflectorFactory();
+    public static boolean DEBUG = false;
     private MethodReflector(ClassWrapper<?> target, Class<T> itf) {
         this.clazz = target;
         this.itf = itf;

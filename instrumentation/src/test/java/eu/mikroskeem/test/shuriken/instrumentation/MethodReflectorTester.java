@@ -6,6 +6,7 @@ import eu.mikroskeem.shuriken.reflect.Reflect;
 import eu.mikroskeem.shuriken.reflect.wrappers.TypeWrapper;
 import eu.mikroskeem.test.shuriken.instrumentation.testclasses.*;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -20,6 +21,11 @@ import static eu.mikroskeem.shuriken.reflect.Reflect.wrapInstance;
  * @author Mark Vainomaa
  */
 public class MethodReflectorTester {
+    @BeforeAll
+    public static void setupMethodReflector() {
+        MethodReflector.DEBUG = true;
+    }
+
     @Test
     public void testMethodReflector() {
         ClassWrapper<TestClass> tc = wrapClass(TestClass.class);
@@ -218,14 +224,13 @@ public class MethodReflectorTester {
     }
 
     @Test
-    @Disabled("Not implemented yet.")
     public void testReflectUsingObjects() {
         ClassWrapper<TestClass4> tc = wrapClass(TestClass4.class).construct();
         MethodReflector<TestClass4ObjectReflector> reflector = newInstance(tc, TestClass4ObjectReflector.class);
 
         TestClass4ObjectReflector reflectorImpl = reflector.getReflector();
         Assertions.assertEquals(String.class, reflectorImpl.a().getClass());
-        Assertions.assertEquals(int.class, reflectorImpl.b().getClass());
+        Assertions.assertEquals(Integer.class, reflectorImpl.b().getClass());
         Assertions.assertEquals(String.class, reflectorImpl.e(1, "a", 'a').getClass());
         Assertions.assertEquals(String.class, reflectorImpl.altE(1, "a", 'a').getClass());
     }

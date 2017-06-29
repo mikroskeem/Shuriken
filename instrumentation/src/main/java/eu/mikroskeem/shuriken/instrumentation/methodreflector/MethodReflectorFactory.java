@@ -8,8 +8,11 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.FieldVisitor;
+import org.objectweb.asm.Type;
+import org.objectweb.asm.util.CheckClassAdapter;
+import org.objectweb.asm.util.TraceClassVisitor;
 
+import java.io.PrintWriter;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Constructor;
@@ -30,6 +33,10 @@ import static org.objectweb.asm.Opcodes.*;
 final class MethodReflectorFactory {
     private static final Map<Class<?>, AtomicInteger> COUNTER = new WeakHashMap<>();
     private final GeneratedClassLoader GCL = new GeneratedClassLoader(MethodReflectorFactory.class.getClassLoader());
+    private final MethodHandles.Lookup mhLookup = MethodHandles.lookup();
+
+    /* Constants */
+    private final static Type OBJECT_TYPE = Type.getType(Object.class);
 
     /* Error messages */
     private final static String NO_CLASS_INSTANCE_PRESET = "Interface targets instance methods, but class instance " +
@@ -44,260 +51,311 @@ final class MethodReflectorFactory {
     private final static String GETTER_WRONG_RETURN_TYPE = "Getters can't return void type! ";
     private final static String GETTER_WRONG_PARAM_COUNT = "Getters can't take any arguments! ";
     private final static String CTOR_INVOKER_WRONG_RETURN_TYPE = "Constructor invoker's return type must match interface " +
-            "method's return type! ";
+            "method's return type or return java.lang.Object! ";
+    private final static String CTOR_TO_USE_OBJECT_PLEASE_OVERRIDE = "Please override constructor descriptor in " +
+            "annotation, or change method return type: ";
 
     @SuppressWarnings("unchecked")
     <T> T generateReflector(ClassWrapper<?> target, Class<T> intf) {
         List<MethodHandle> methodHandles = new ArrayList<>();
-        MethodHandles.Lookup mhLookup = MethodHandles.lookup();
+        boolean isTargetPublic = Modifier.isPublic(target.getWrappedClass().getModifiers());
         boolean classMustUseInstance = false;
         boolean classMustUseMH = false;
 
+        /* Proxy class info */
         String proxyClassName = generateName(target, intf);
-        String proxyClassInternalName = unqualifyName(proxyClassName);
-        Class<?> targetClass = target.getWrappedClass();
-        String targetClassInternalName = unqualifyName(targetClass);
+        Type proxyClassType = Type.getObjectType(unqualifyName(proxyClassName));
 
+        /* Interface class info */
+        Type interfaceClassType = Type.getType(intf);
+
+        /* Target class info */
+        Class<?> targetClass = target.getWrappedClass();
+        Type targetClassType = Type.getType(targetClass);
+
+        /* Set up class writer */
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         ClassVisitor classWriter = cw;
-        //classWriter = new CheckClassAdapter(new TraceClassVisitor(classWriter, new PrintWriter(System.out)), false);
+        if(MethodReflector.DEBUG) {
+            classWriter = new CheckClassAdapter(new TraceClassVisitor(classWriter, new PrintWriter(System.out)), false);
+        }
 
+        /* Start generating new class */
         classWriter.visit(V1_8, ACC_PUBLIC + ACC_SUPER,
-                proxyClassInternalName,
+                proxyClassType.getInternalName(),
                 null,
-                unqualifyName(Object.class),
-                new String[]{unqualifyName(intf)}
+                OBJECT.getInternalName(),
+                new String[]{interfaceClassType.getInternalName()}
         );
 
-        /* Generate proxy methods */
-        for (Method intfMethod : intf.getMethods()) {
-            /* Do not allow multiple annotations, because that ain't going to work anyway */
+        /* Iterate through interface methods */
+        for(Method interfaceMethod: intf.getMethods()) {
+            /* Gather proxy method info */
+            boolean interfaceHasDefault = interfaceMethod.isDefault();
+            Type[] interfaceParameters = Type.getArgumentTypes(interfaceMethod);
+            Type interfaceReturnType = Type.getReturnType(interfaceMethod);
+
+            /* Gather proxy method annotations */
             boolean hasAnnotation = false;
-            TargetFieldGetter fieldGetter = intfMethod.getAnnotation(TargetFieldGetter.class);
-            TargetFieldSetter fieldSetter = intfMethod.getAnnotation(TargetFieldSetter.class);
-            TargetMethod targetMethod = intfMethod.getAnnotation(TargetMethod.class);
-            TargetConstructor targetConstructor = intfMethod.getAnnotation(TargetConstructor.class);
-            if(fieldGetter != null) { Ensure.ensureCondition(!hasAnnotation, ANNOTATION_ERROR + intfMethod); hasAnnotation = true; }
-            if(fieldSetter != null) { Ensure.ensureCondition(!hasAnnotation, ANNOTATION_ERROR + intfMethod); hasAnnotation = true; }
-            if(targetMethod != null) { Ensure.ensureCondition(!hasAnnotation, ANNOTATION_ERROR + intfMethod); hasAnnotation = true; }
-            if(targetConstructor != null) { Ensure.ensureCondition(!hasAnnotation, ANNOTATION_ERROR + intfMethod); hasAnnotation = true; }
+            TargetFieldGetter fieldGetterInfo = interfaceMethod.getAnnotation(TargetFieldGetter.class);
+            TargetFieldSetter fieldSetterInfo = interfaceMethod.getAnnotation(TargetFieldSetter.class);
+            TargetMethod targetMethodInfo = interfaceMethod.getAnnotation(TargetMethod.class);
+            TargetConstructor targetConstructorInfo = interfaceMethod.getAnnotation(TargetConstructor.class);
+            if(fieldGetterInfo != null) { Ensure.ensureCondition(!hasAnnotation, ANNOTATION_ERROR + interfaceMethod); hasAnnotation = true; }
+            if(fieldSetterInfo != null) { Ensure.ensureCondition(!hasAnnotation, ANNOTATION_ERROR + interfaceMethod); hasAnnotation = true; }
+            if(targetMethodInfo != null) { Ensure.ensureCondition(!hasAnnotation, ANNOTATION_ERROR + interfaceMethod); hasAnnotation = true; }
+            if(targetConstructorInfo != null) { Ensure.ensureCondition(!hasAnnotation, ANNOTATION_ERROR + interfaceMethod); hasAnnotation = true; }
 
-            /* Create field getter/setter */
-            if(fieldGetter != null || fieldSetter != null) {
-                String fieldName = Ensure.notNull(either(fieldGetter, fieldSetter, "value"), FIELD_NAME_IS_NULL);
-                boolean isSetter = fieldSetter != null;
-                Class<?> fieldType;
+            /* Check if annotation is present and create method with custom target */
+            if(hasAnnotation && targetMethodInfo == null) {
+                /* Field getter/setter */
+                if(fieldGetterInfo != null || fieldSetterInfo != null) {
+                    String fieldName = Ensure.notNull(either(fieldGetterInfo, fieldSetterInfo, "value"), FIELD_NAME_IS_NULL);
+                    String annotationFieldType = either(fieldGetterInfo, fieldSetterInfo, "type");
+                    boolean isSetter = fieldSetterInfo != null;
+                    Type fieldType;
 
-                /*
-                 * Force setters to return void and take only one parameter,
-                 * force getters to return type and take no parameters
-                 */
-                if(isSetter) {
-                    Ensure.ensureCondition(intfMethod.getReturnType() == void.class,
-                           SETTER_WRONG_RETURN_TYPE + intfMethod);
-                    Ensure.ensureCondition(intfMethod.getParameterTypes().length == 1,
-                           SETTER_WRONG_PARAM_COUNT + intfMethod);
-                    fieldType = intfMethod.getParameterTypes()[0];
-                } else {
-                    Ensure.ensureCondition(intfMethod.getReturnType() != void.class,
-                           GETTER_WRONG_RETURN_TYPE + intfMethod);
-                    Ensure.ensureCondition(intfMethod.getParameterTypes().length == 0,
-                           GETTER_WRONG_PARAM_COUNT + intfMethod);
-                    fieldType = intfMethod.getReturnType();
-                }
-
-                /* Try to find field */
-                Field targetClassField = findDeclaredField(targetClass, fieldName, fieldType);
-
-                /* Ensure target field is present */
-                Ensure.notNull(targetClassField, FAILED_TO_FIND_FIELD + intfMethod);
-
-                /* Get needed target field info */
-                boolean useInstance = false;
-                boolean useMH = false;
-
-                if(!Modifier.isStatic(targetClassField.getModifiers())) {
-                    /* Proxy class must use target class instance */
-                    if(!classMustUseInstance) classMustUseInstance = true;
-                    useInstance = true;
-                }
-
-                if(!Modifier.isPublic(targetClassField.getModifiers())) {
-                    /* Proxy class must use method handles */
-                    if(!classMustUseMH) classMustUseMH = true;
-                    useMH = true;
-                }
-
-                if(Modifier.isFinal(targetClassField.getModifiers())) {
-                    /* Proxy class must use method handles */
-                    if(!classMustUseMH) classMustUseMH = true;
-                    useMH = true;
-
-                    /* Remove final modifier */
-                    int modifiers = targetClassField.getModifiers();
-                    Reflect.wrapInstance(targetClassField).getField("modifiers", int.class)
-                            .ifPresent(fw -> fw.write(modifiers & ~Modifier.FINAL));
-                }
-
-                /* Generate method */
-                try {
-                    if(useMH) {
-                        /* Try to look up method handle */
-                        if(!targetClassField.isAccessible()) targetClassField.setAccessible(true);
-                        MethodHandle methodHandle = isSetter? mhLookup.unreflectSetter(targetClassField) :
-                                mhLookup.unreflectGetter(targetClassField);
-
-                        /* Add MethodHandle into MethodHandles array */
-                        methodHandles.add(methodHandle);
-
-                        if(isSetter) {
-                            generateFieldWriteMHMethod(classWriter, intfMethod, targetClassField,
-                                    proxyClassInternalName, targetClassInternalName,
-                                    useInstance, methodHandles.size() - 1);
-                        } else {
-                            generateFieldReadMHMethod(classWriter, intfMethod, targetClassField,
-                                    proxyClassInternalName, targetClassInternalName,
-                                    useInstance, methodHandles.size() - 1);
-                        }
+                    /*
+                     * Force setters to return void and take only one parameter,
+                     * force getters to return type and take no parameters
+                     */
+                    if(isSetter) {
+                        Ensure.ensureCondition(interfaceReturnType.equals(Type.VOID_TYPE),
+                                SETTER_WRONG_RETURN_TYPE + interfaceMethod);
+                        Ensure.ensureCondition(interfaceParameters.length == 1,
+                                SETTER_WRONG_PARAM_COUNT + interfaceMethod);
+                        fieldType = Optional.ofNullable(annotationFieldType).map(Type::getType)
+                                .orElse(interfaceParameters[0]);
                     } else {
-                        if(isSetter) {
-                            generateFieldWriteMethod(classWriter, intfMethod, targetClassField,
-                                    proxyClassInternalName, targetClassInternalName,
-                                    useInstance);
-                        } else {
-                            generateFieldReadMethod(classWriter, intfMethod, targetClassField,
-                                    proxyClassInternalName, targetClassInternalName,
-                                    useInstance);
-                        }
+                        Ensure.ensureCondition(!interfaceReturnType.equals(Type.VOID_TYPE),
+                                GETTER_WRONG_RETURN_TYPE + interfaceMethod);
+                        Ensure.ensureCondition(interfaceParameters.length == 0,
+                                GETTER_WRONG_PARAM_COUNT + interfaceMethod);
+                        fieldType = Optional.ofNullable(annotationFieldType).map(Type::getType)
+                                .orElse(interfaceReturnType);
                     }
-                } catch (IllegalStateException e) {
-                    generateFailedMethod(classWriter, intfMethod, e.getMessage());
-                } catch (IllegalAccessException e) {
-                    generateFailedMethod(classWriter, intfMethod, FAILED_TO_UNREFLECT + targetClassField);
+
+                    /* Try to find field */
+                    Field targetField = findDeclaredField(targetClass, fieldName, fieldType);
+
+                    /* Ensure target field is present */
+                    Ensure.notNull(targetField, FAILED_TO_FIND_FIELD + interfaceMethod);
+
+                     /* Get needed target field info */
+                    boolean useInstance = false;
+                    boolean useMH = false;
+
+                    if(!Modifier.isStatic(targetField.getModifiers())) {
+                        /* Proxy class must use target class instance */
+                        if(!classMustUseInstance) classMustUseInstance = true;
+                        useInstance = true;
+                    }
+
+                    if(!isTargetPublic) {
+                        /* Must use MethodHandle */
+                        if(!classMustUseMH) classMustUseMH = true;
+                        useMH = true;
+                    }
+
+                    if(!Modifier.isPublic(targetField.getModifiers())) {
+                        /* Proxy class must use method handles */
+                        if(!classMustUseMH) classMustUseMH = true;
+                        useMH = true;
+                    }
+
+                    if(Modifier.isFinal(targetField.getModifiers())) {
+                        /* Proxy class must use method handles */
+                        if(!classMustUseMH) classMustUseMH = true;
+                        useMH = true;
+
+                        /* Remove final modifier */
+                        int modifiers = targetField.getModifiers();
+                        Reflect.wrapInstance(targetField).getField("modifiers", int.class)
+                                .ifPresent(fw -> fw.write(modifiers & ~Modifier.FINAL));
+                    }
+
+                    /* Generate proxy method */
+                    try {
+                        int mhIndex = -1;
+                        if(useMH) {
+                            /* Try to look up method handle */
+                            if(!targetField.isAccessible()) targetField.setAccessible(true);
+                            MethodHandle methodHandle = isSetter? mhLookup.unreflectSetter(targetField) :
+                                    mhLookup.unreflectGetter(targetField);
+
+                            /* Add MethodHandle into MethodHandles array */
+                            methodHandles.add(methodHandle);
+
+                            /* Set up mhIndex */
+                            mhIndex = methodHandles.size() - 1;
+                        }
+
+                        if(isSetter) {
+                            /* Generate setter */
+                            generateFieldWriteMethod(classWriter, interfaceMethod,
+                                    proxyClassType, targetClassType, fieldType, fieldName,
+                                    isTargetPublic, useInstance, useMH, mhIndex);
+                        } else {
+                            /* Generate getter */
+                            generateFieldReadMethod(classWriter, interfaceMethod,
+                                    proxyClassType, targetClassType, fieldType, fieldName,
+                                    isTargetPublic, useInstance, useMH, mhIndex);
+                        }
+                    } catch (IllegalStateException e) {
+                        generateFailedMethod(classWriter, interfaceMethod, e.getMessage());
+                    } catch (IllegalAccessException e) {
+                        generateFailedMethod(classWriter, interfaceMethod, FAILED_TO_UNREFLECT + targetField);
+                    }
+                    continue;
                 }
 
-                /* Start loop from beginning, code below is meant for method proxy */
-                continue;
-            }
+                /* ** Constructor invoker */
 
-            /* Create constructor proxy */
-            if(targetConstructor != null) {
-                /* Force method to return target class type */
-                Ensure.ensureCondition(intfMethod.getReturnType() == targetClass, CTOR_INVOKER_WRONG_RETURN_TYPE);
+                /* Ensure interface method returns given class type or Object */
+                Ensure.ensureCondition(
+                        interfaceReturnType.equals(targetClassType) ||
+                        interfaceReturnType.equals(OBJECT_TYPE),
+                        CTOR_INVOKER_WRONG_RETURN_TYPE + interfaceMethod
+                );
+                Type[] targetParameters = interfaceParameters;
+                Type targetReturnType = interfaceReturnType;
 
-                Class<?>[] params = intfMethod.getParameterTypes();
+                /* Read custom descriptor, if present */
+                if(!targetConstructorInfo.desc().isEmpty()) {
+                    targetParameters = Type.getArgumentTypes(targetConstructorInfo.desc());
+                    targetReturnType = Type.getReturnType(targetConstructorInfo.desc());
+                }
 
-                /* Try to find constructor */
-                Constructor<?> classTargetConstructor = findDeclaredConstructor(targetClass, params);
+                /* Constructor return type cannot be Object anymore */
+                Ensure.ensureCondition(!targetReturnType.equals(OBJECT_TYPE) &&
+                                targetClass != Object.class, /* People like to do weird stuff */
+                        CTOR_TO_USE_OBJECT_PLEASE_OVERRIDE + interfaceMethod);
+
+                /* Try to find target constructor */
+                Constructor<?> targetConstructor = findDeclaredConstructor(targetClass, targetParameters);
 
                 /* Get needed target constructor info */
                 boolean useMH = false;
 
-                if(!Modifier.isPublic(classTargetConstructor.getModifiers())) {
+                if(!Modifier.isPublic(targetConstructor.getModifiers())) {
                     /* Proxy class must use method handles */
+                    if(!classMustUseMH) classMustUseMH = true;
+                    useMH = true;
+                }
+
+                if(!isTargetPublic) {
+                    /* Must use MethodHandle */
                     if(!classMustUseMH) classMustUseMH = true;
                     useMH = true;
                 }
 
                 /* Generate proxy method */
                 try {
+                    int mhIndex = -1;
                     if(useMH) {
-                        if(!classTargetConstructor.isAccessible()) classTargetConstructor.setAccessible(true);
-                        MethodHandle methodHandle = mhLookup.unreflectConstructor(classTargetConstructor);
+                        if(!targetConstructor.isAccessible()) targetConstructor.setAccessible(true);
+                        MethodHandle methodHandle = mhLookup.unreflectConstructor(targetConstructor);
 
                         /* Add MethodHandle into MethodHandles array */
                         methodHandles.add(methodHandle);
 
-                        /* Generate proxy method using MethodHandle */
-                        generateConstructorMHMethod(classWriter, intfMethod, classTargetConstructor,
-                                proxyClassInternalName, targetClassInternalName,
-                                methodHandles.size() - 1);
-                    } else {
-                        generateConstructorMethod(classWriter, intfMethod, classTargetConstructor,
-                                proxyClassInternalName, targetClassInternalName);
+                        /* Set up mhIndex */
+                        mhIndex = methodHandles.size() - 1;
                     }
+
+                    /* Generate method */
+                    generateConstructorProxy(classWriter, interfaceMethod,
+                            proxyClassType, targetClassType, targetParameters,
+                            isTargetPublic, useMH, mhIndex);
                 } catch (IllegalStateException e) {
-                    generateFailedMethod(classWriter, intfMethod, e.getMessage());
+                    generateFailedMethod(classWriter, interfaceMethod, e.getMessage());
                 } catch (IllegalAccessException e) {
-                    generateFailedMethod(classWriter, intfMethod, FAILED_TO_UNREFLECT + classTargetConstructor);
+                    generateFailedMethod(classWriter, interfaceMethod, FAILED_TO_UNREFLECT + targetConstructor);
                 }
 
-                /* Start loop from beginning, code below is meant for method proxy */
                 continue;
             }
 
-            /* Create method proxy */
-            Method targetClassMethod;
-            if(targetMethod != null) {
-                String methodName = targetMethod.value().isEmpty() ? intfMethod.getName() : targetMethod.value();
-                String methodDesc = ""; //targetMethod.desc();
-                Class<?>[] params = intfMethod.getParameterTypes();
-                Class<?> returnType = intfMethod.getReturnType();
+            /* ** Proceed creating proxy method */
 
-                if(!methodDesc.isEmpty()) {
-                    /* TODO: *SIGH* How do I parse this? */
-                    throw new UnsupportedOperationException("Using custom descriptor is not supported yet! :(");
-                }
+            /* Gather required method parameter/return type info */
+            String methodName = targetMethodInfo != null && !targetMethodInfo.value().isEmpty()?
+                    targetMethodInfo.value()
+                    :
+                    interfaceMethod.getName();
 
-                /* Find given method */
-                targetClassMethod = findDeclaredMethod(targetClass, methodName, params, returnType);
-            } else {
-                targetClassMethod = findDeclaredMethod(targetClass, intfMethod);
-            }
+            Type[] targetParameters = targetMethodInfo != null && !targetMethodInfo.desc().isEmpty()?
+                    Type.getArgumentTypes(targetMethodInfo.desc())
+                    :
+                    Type.getArgumentTypes(interfaceMethod);
+            Type targetReturnType = targetMethodInfo != null && !targetMethodInfo.desc().isEmpty()?
+                    Type.getReturnType(targetMethodInfo.desc())
+                    :
+                    Type.getReturnType(interfaceMethod);
+
+            /* Try to find target method */
+            Method targetMethod = findDeclaredMethod(targetClass, methodName, targetParameters, targetReturnType);
 
             /* Ensure target method is present */
-            if(targetClassMethod == null && intfMethod.isDefault()) {
+            if(targetMethod == null && interfaceHasDefault) {
                 /* Use interface's default method */
                 continue;
             }
-            Ensure.notNull(targetClassMethod, FAILED_TO_FIND_METHOD + intfMethod);
+            Ensure.notNull(targetMethod, FAILED_TO_FIND_METHOD + interfaceMethod);
 
             /* Get needed target method info */
             boolean useInterface = false;
             boolean useInstance = false;
             boolean useMH = false;
 
-            if(targetClassMethod.getDeclaringClass().isInterface()) {
+            if(targetMethod.getDeclaringClass().isInterface()) {
                 /* INVOKEINTERFACE it is */
                 useInterface = true;
             }
 
-            if(!Modifier.isStatic(targetClassMethod.getModifiers())) {
+            if(!Modifier.isStatic(targetMethod.getModifiers())) {
                 /* Proxy class must use target class instance */
                 if(!classMustUseInstance) classMustUseInstance = true;
                 useInstance = true;
             }
 
-            if(!Modifier.isPublic(targetClassMethod.getModifiers())) {
+            if(!isTargetPublic) {
+                /* Must use MethodHandle */
+                if(!classMustUseMH) classMustUseMH = true;
+                useMH = true;
+            }
+
+            if(!Modifier.isPublic(targetMethod.getModifiers())) {
                 /* Proxy class must use method handles */
                 if(!classMustUseMH) classMustUseMH = true;
                 useMH = true;
             }
 
-            /* Generate proxy method */
             try {
+                int mhIndex = -1;
                 if(useMH) {
                     /* Try to look up method handle */
-                    if(!targetClassMethod.isAccessible()) targetClassMethod.setAccessible(true);
-                    MethodHandle methodHandle = mhLookup.unreflect(targetClassMethod);
+                    if(!targetMethod.isAccessible()) targetMethod.setAccessible(true);
+                    MethodHandle methodHandle = mhLookup.unreflect(targetMethod);
 
                     /* Add MethodHandle into MethodHandles array */
                     methodHandles.add(methodHandle);
 
-                    /* Generate proxy method using MethodHandle */
-                    generateProxyMHMethod(classWriter, intfMethod, targetClassMethod,
-                            proxyClassInternalName, targetClassInternalName,
-                            useInstance, methodHandles.size() - 1);
-                } else {
-                    generateProxyMethod(classWriter, intfMethod, targetClassMethod,
-                            proxyClassInternalName, targetClassInternalName,
-                            useInstance, useInterface);
+                    /* Set up mhIndex */
+                    mhIndex = methodHandles.size() - 1;
                 }
+
+                /* Generate method */
+                generateMethodProxy(classWriter, interfaceMethod, proxyClassType, targetClassType,
+                        useInterface? Type.getType(targetMethod.getDeclaringClass()) : null,
+                        methodName, targetParameters, targetReturnType,
+                        isTargetPublic, useInstance,
+                        useInterface, useMH, mhIndex);
             } catch (IllegalStateException e) {
                 /* Something failed, whoops */
-                generateFailedMethod(classWriter, intfMethod, e.getMessage());
+                generateFailedMethod(classWriter, interfaceMethod, e.getMessage());
             } catch (IllegalAccessException e) {
-                generateFailedMethod(classWriter, intfMethod, FAILED_TO_UNREFLECT + targetClassMethod);
+                generateFailedMethod(classWriter, interfaceMethod, FAILED_TO_UNREFLECT + targetMethod);
             }
         }
 
@@ -306,20 +364,9 @@ final class MethodReflectorFactory {
             Ensure.ensureCondition(target.getClassInstance() != null, NO_CLASS_INSTANCE_PRESET);
         }
 
-        /* Set up needed field for class instance reference */
-        if(classMustUseInstance) {
-            FieldVisitor fv = classWriter.visitField(ACC_PRIVATE + ACC_FINAL, "ref", "L" + targetClassInternalName + ";", null, null);
-            fv.visitEnd();
-        }
-
-        /* Set up needed field for MethodHandle array */
-        if(classMustUseMH) {
-            FieldVisitor fv = classWriter.visitField(ACC_PRIVATE + ACC_FINAL, "mh", MH_ARRAY, null, null);
-            fv.visitEnd();
-        }
-
-        /* Generate constructor */
-        generateConstructor(classWriter, classMustUseInstance, classMustUseMH, proxyClassInternalName, targetClassInternalName);
+        /* Generate class base (constructor, fields) */
+        generateClassBase(classWriter, classMustUseInstance, classMustUseMH,
+                isTargetPublic, proxyClassType, targetClassType);
 
         /* End class writing */
         classWriter.visitEnd();
@@ -330,7 +377,8 @@ final class MethodReflectorFactory {
 
         /* Construct accessor */
         List<TypeWrapper> ctorParams = new ArrayList<>();
-        if(classMustUseInstance) ctorParams.add(TypeWrapper.of(targetClass, target.getClassInstance()));
+        if(classMustUseInstance) ctorParams.add(TypeWrapper.of(
+                isTargetPublic?targetClass:Object.class, target.getClassInstance()));
         if(classMustUseMH) ctorParams.add(TypeWrapper.of(MethodHandle[].class,
                 methodHandles.toArray(new MethodHandle[methodHandles.size()])));
 
@@ -358,7 +406,7 @@ final class MethodReflectorFactory {
 
     /* Finds declared method by name, parameters and return type. Probably inefficient as fuck */
     @Nullable
-    private Method findDeclaredMethod(Class<?> clazz, String methodName, Class<?>[] params, Class<?> returnType) {
+    private Method findDeclaredMethod(Class<?> clazz, String methodName, Type[] params, Type returnType) {
         Class<?> scanClass = clazz;
         Method method;
         /* Scan superclasses */
@@ -366,8 +414,8 @@ final class MethodReflectorFactory {
             method = Arrays.stream(scanClass.getDeclaredMethods())
                     .filter(m ->
                         methodName.equals(m.getName()) &&
-                        Arrays.equals(m.getParameterTypes(), params) &&
-                        m.getReturnType() == returnType
+                        Arrays.equals(Type.getArgumentTypes(m), params) &&
+                        Type.getType(m.getReturnType()).equals(returnType)
                     )
                     .findFirst().orElse(null);
         } while (method == null && (scanClass = scanClass.getSuperclass()) != null);
@@ -384,7 +432,7 @@ final class MethodReflectorFactory {
                     .filter(m ->
                         methodName.equals(m.getName()) &&
                         Arrays.equals(m.getParameterTypes(), params) &&
-                        m.getReturnType() == returnType &&
+                        Type.getType(m.getReturnType()).equals(returnType) &&
                         (m.isDefault() || Modifier.isStatic(m.getModifiers()))
                     )
                     .findFirst().orElse(null);
@@ -394,36 +442,21 @@ final class MethodReflectorFactory {
         return method;
     }
 
-    /* Finds method by other method's name, parameters and return type */
-    private Method findDeclaredMethod(Class<?> clazz, Method method) {
-        return findDeclaredMethod(clazz, method.getName(), method.getParameterTypes(), method.getReturnType());
-    }
-
     /* Finds field */
-    private Field findDeclaredField(Class<?> clazz, String fieldName, Class<?> fieldType) {
+    private Field findDeclaredField(Class<?> clazz, String fieldName, Type fieldType) {
         return Arrays.stream(clazz.getDeclaredFields()).filter(field ->
                 field.getName().equals(fieldName) &&
-                field.getType() == fieldType)
+                Type.getType(field.getType()).equals(fieldType))
                 .findFirst()
                 .orElse(null);
     }
 
     /* Finds constructor */
-    private Constructor<?> findDeclaredConstructor(Class<?> clazz, Class<?>[] parameters) {
+    private Constructor<?> findDeclaredConstructor(Class<?> clazz, Type[] parameters) {
         return Arrays.stream(clazz.getDeclaredConstructors())
-                .filter(ctor -> Arrays.equals(ctor.getParameterTypes(), parameters))
+                .filter(c -> Arrays.equals(Type.getType(c).getArgumentTypes(), parameters))
                 .findFirst()
                 .orElse(null);
-    }
-
-    /* Gets either of string value */
-    @Nullable
-    private static String either(String one, String two) {
-        if(one != null && !one.isEmpty())
-            return one;
-        if(two != null && !two.isEmpty())
-            return two;
-        return null;
     }
 
     /* Gets either of value from annotations */
@@ -431,7 +464,7 @@ final class MethodReflectorFactory {
     private static <A, B> String either(A one, B two, String value) {
         String val = null;
         if(one != null) val = Reflect.wrapInstance(one).invokeMethod(value, String.class);
-        if(val == null && two != null) val = Reflect.wrapInstance(two).invokeMethod(value, String.class);
-        return val;
+        if((val == null || val.isEmpty()) && two != null) val = Reflect.wrapInstance(two).invokeMethod(value, String.class);
+        return val != null && !val.isEmpty() ? val : null;
     }
 }

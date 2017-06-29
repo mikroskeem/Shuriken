@@ -2,17 +2,20 @@ package eu.mikroskeem.shuriken.instrumentation.methodreflector;
 
 import eu.mikroskeem.shuriken.common.Ensure;
 import eu.mikroskeem.shuriken.instrumentation.ClassTools;
-import eu.mikroskeem.shuriken.reflect.PrimitiveType;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.commons.GeneratorAdapter;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
+import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
-import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-import static eu.mikroskeem.shuriken.instrumentation.ClassTools.unqualifyName;
 import static eu.mikroskeem.shuriken.instrumentation.Descriptor.newDescriptor;
 import static org.objectweb.asm.Opcodes.*;
 
@@ -21,457 +24,393 @@ import static org.objectweb.asm.Opcodes.*;
  * @author Mark Vainomaa
  */
 final class MethodGenerator {
-    final static String MH = "java/lang/invoke/MethodHandle";
-    final static String MH_ARRAY = "[L" + MH + ";";
+    /* Types from GeneratorAdapter */
+    private static final Type BYTE_TYPE = Type.getObjectType("java/lang/Byte");
+    private static final Type BOOLEAN_TYPE = Type.getObjectType("java/lang/Boolean");
+    private static final Type SHORT_TYPE = Type.getObjectType("java/lang/Short");
+    private static final Type CHARACTER_TYPE = Type.getObjectType("java/lang/Character");
+    private static final Type INTEGER_TYPE = Type.getObjectType("java/lang/Integer");
+    private static final Type FLOAT_TYPE = Type.getObjectType("java/lang/Float");
+    private static final Type LONG_TYPE = Type.getObjectType("java/lang/Long");
+    private static final Type DOUBLE_TYPE = Type.getObjectType("java/lang/Double");
+    private static final Type NUMBER_TYPE = Type.getObjectType("java/lang/Number");
 
-    /* Generates appropriate constructor for class */
-    static void generateConstructor(ClassVisitor classVisitor, boolean useInstance, boolean useMH,
-                                    String proxyClassInternal, String targetClassInternal) {
-        if(useInstance || useMH) {
+    /* Field names */
+    final static String REFF = "ref";
+    final static String MHF = "mh";
+
+    /* Common types */
+    final static Type MH = Type.getType(MethodHandle.class);
+    final static Type MH_ARRAY = Type.getType(MethodHandle[].class);
+    final static Type OBJECT = Type.getType(Object.class);
+
+    /* Generates class base */
+    static void generateClassBase(ClassVisitor cv,
+                                  boolean useInstance, boolean useMH, boolean isTargetPublic,
+                                  Type proxyClass, Type targetClass) {
+        FieldVisitor fv;
+        GeneratorAdapter adapter;
+        MethodVisitor mv;
+
+        if(useMH || useInstance) {
+            /* Use java.lang.Object instead */
+            if(!isTargetPublic) {
+                targetClass = OBJECT;
+            }
+
             /* Figure out what descriptor to use */
             String descriptor;
             if(useInstance && useMH) {
-                descriptor = newDescriptor().accepts("L" + targetClassInternal + ";", MH_ARRAY).toString();
+                descriptor = newDescriptor().accepts(targetClass.getDescriptor(), MH_ARRAY.getDescriptor()).toString();
             } else if(useInstance) {
-                descriptor = newDescriptor().accepts("L" + targetClassInternal + ";").toString();
+                descriptor = newDescriptor().accepts(targetClass.getDescriptor()).toString();
             } else {
-                descriptor = newDescriptor().accepts(MH_ARRAY).toString();
+                descriptor = newDescriptor().accepts(MH_ARRAY.getDescriptor()).toString();
             }
 
-            MethodVisitor mv = classVisitor.visitMethod(ACC_PUBLIC, "<init>", descriptor, null, null);
+            /* Generate constructor */
+            mv = cv.visitMethod(ACC_PUBLIC, "<init>", descriptor, null, null);
+            adapter = new GeneratorAdapter(mv, ACC_PUBLIC, "<init>", descriptor);
             mv.visitCode();
-            mv.visitVarInsn(ALOAD, 0);
-            mv.visitMethodInsn(INVOKESPECIAL, unqualifyName(Object.class), "<init>", "()V", false);
-            mv.visitVarInsn(ALOAD, 0);
+            adapter.loadThis();
+            adapter.visitMethodInsn(INVOKESPECIAL, OBJECT.getInternalName(), "<init>", "()V", false);
 
+            /* Start putting arguments to fields */
             if(useInstance && useMH) {
-                mv.visitVarInsn(ALOAD, 1);
-                mv.visitFieldInsn(PUTFIELD, proxyClassInternal, "ref", "L" + targetClassInternal + ";");
-                mv.visitVarInsn(ALOAD, 0);
-                mv.visitVarInsn(ALOAD, 2);
-                mv.visitFieldInsn(PUTFIELD, proxyClassInternal, "mh", MH_ARRAY);
+                adapter.loadThis();
+                adapter.loadArg(0);
+                adapter.putField(proxyClass, REFF, targetClass);
+                adapter.loadThis();
+                adapter.loadArg(1);
+                adapter.putField(proxyClass, MHF, MH_ARRAY);
             } else if(useInstance) {
-                mv.visitVarInsn(ALOAD, 1);
-                mv.visitFieldInsn(PUTFIELD, proxyClassInternal, "ref", "L" + targetClassInternal + ";");
-            } else {
-                mv.visitVarInsn(ALOAD, 1);
-                mv.visitFieldInsn(PUTFIELD, proxyClassInternal, "mh", MH_ARRAY);
+                adapter.loadThis();
+                adapter.loadArg(0);
+                adapter.putField(proxyClass, "ref", targetClass);
+            } else /*if(useMH)*/ {
+                adapter.loadThis();
+                adapter.loadArg(0);
+                adapter.putField(proxyClass, "mh", MH_ARRAY);
             }
 
-            mv.visitInsn(RETURN);
-            mv.visitMaxs(0, 0);
-            mv.visitEnd();
+            /* End constructor */
+            adapter.returnValue();
+            adapter.endMethod();
+
+            /* Generate required fields as well */
+            if(useMH) {
+                fv = cv.visitField(ACC_PRIVATE | ACC_FINAL, "mh",
+                        MH_ARRAY.getDescriptor(), null, null);
+                fv.visitEnd();
+            }
+            if(useInstance) {
+                fv = cv.visitField(ACC_PRIVATE | ACC_FINAL, "ref",
+                        targetClass.getDescriptor(), null, null);
+                fv.visitEnd();
+            }
         } else {
-            ClassTools.generateSimpleSuperConstructor((ClassVisitor)classVisitor, Object.class);
+            ClassTools.generateSimpleSuperConstructor(cv, Object.class);
         }
     }
 
-    /* Generates proxy method for public target method */
-    static void generateProxyMethod(ClassVisitor visitor, Method method, Method targetMethod,
-                                    String proxyClassInternal, String targetClassInternal,
-                                    boolean useInstance, boolean useInterface) {
-        String descriptor = newDescriptor().accepts(method.getParameterTypes()).returns(method.getReturnType()).toString();
-        String targetDescriptor = newDescriptor()
-                .accepts(targetMethod.getParameterTypes())
-                .returns(targetMethod.getReturnType())
-                .toString();
-        MethodVisitor mv = visitor.visitMethod(ACC_PUBLIC, method.getName(), descriptor, null, null);
+    /* Generates proxy method, what invokes target method */
+    static void generateMethodProxy(ClassVisitor cv, Method interfaceMethod,
+                                    Type proxyClass, Type targetClass, Type interfaceClass,
+                                    String targetMethodName, Type[] targetParameters, Type targetReturnType,
+                                    boolean isTargetPublic, boolean useInstance,
+                                    boolean useInterface, boolean useMH, int mhIndex) {
+        String methodName = interfaceMethod.getName();
+        String methodDesc = Type.getMethodDescriptor(interfaceMethod);
+        MethodVisitor mv = cv.visitMethod(ACC_PUBLIC, methodName, methodDesc, null, null);
+        GeneratorAdapter adapter = new GeneratorAdapter(mv, ACC_PUBLIC, methodName, methodDesc);
         mv.visitCode();
 
-        /* Load class reference into stack, if needed */
-        if(useInstance) {
-            mv.visitVarInsn(ALOAD, 0);
-            mv.visitFieldInsn(GETFIELD, proxyClassInternal, "ref", "L"+targetClassInternal+";");
+        /* Load MethodHandle, if required */
+        loadMH(adapter, proxyClass, useMH, mhIndex);
+
+        /* Load instance, if required */
+        loadInstance(adapter, proxyClass, targetClass, useInstance, isTargetPublic);
+
+        /* Load method parameters into stack */
+        loadArguments(adapter, Type.getArgumentTypes(interfaceMethod), targetParameters);
+
+        if(useMH) {
+            /* Build MethodHandle descriptor (invokeExact is polymorphic) */
+            String mhDescriptor = convertDesc(targetParameters, targetReturnType, useInstance ? targetClass : null);
+
+            /* Invoke MethodHandle */
+            mv.visitMethodInsn(INVOKEVIRTUAL, MH.getInternalName(), "invokeExact", mhDescriptor, false);
+        } else {
+            /* Figure out what opcode to use */
+            int opCode = useInterface ?
+                    (useInstance ? INVOKEINTERFACE : INVOKESTATIC)
+                    :
+                    (useInstance ? INVOKEVIRTUAL : INVOKESTATIC);
+
+            /* Build descriptor & select target class */
+            String targetDescriptor = convertDesc(targetParameters, targetReturnType, null);
+            String targetName = useInterface ? interfaceClass.getInternalName() : targetClass.getInternalName();
+
+            /* Invoke method */
+            adapter.visitMethodInsn(opCode, targetName, targetMethodName, targetDescriptor, useInterface);
         }
 
-        /* Load all parameters into stack */
-        loadParams(mv, method, targetMethod.getParameterTypes());
+        /* Return */
+        handleReturn(adapter, interfaceMethod, targetReturnType);
+        adapter.returnValue();
 
-        /* Figure out what opcode to use */
-        int opCode = useInterface?
-                (useInstance ? INVOKEINTERFACE : INVOKESTATIC)
-                :
-                (useInstance ? INVOKEVIRTUAL : INVOKESTATIC);
-
-        /* Target class is interface, if we can use interface */
-        if(useInterface) targetClassInternal = ClassTools.unqualifyName(targetMethod.getDeclaringClass());
-
-        /* Invoke target method */
-        mv.visitMethodInsn(opCode, targetClassInternal, targetMethod.getName(), targetDescriptor, useInterface);
-
-        /* Use appropriate return instruction */
-        generateReturn(mv, method, targetMethod.getReturnType());
-
-        /* End of the method */
-        mv.visitMaxs(0, 0);
-        mv.visitEnd();
+        /* End method */
+        adapter.endMethod();
     }
 
-    /* Generates method for non-public target method */
-    static void generateProxyMHMethod(ClassVisitor visitor, Method method, Method targetMethod,
-                                      String proxyClassInternal, String targetClassInternal,
-                                      boolean useInstance, int methodHandleIndex) {
-        String descriptor = newDescriptor().accepts(method.getParameterTypes()).returns(method.getReturnType()).toString();
-
-        /* Build MethodHandle accepts */
-        StringBuilder mhAccepts = new StringBuilder();
-        Arrays.stream(targetMethod.getParameterTypes()).map(Type::getDescriptor).forEach(mhAccepts::append);
-        String mhDescriptor = newDescriptor()
-                .accepts((useInstance? "L"+targetClassInternal+";" : "") + mhAccepts.toString())
-                .returns(targetMethod.getReturnType())
-                .toString();
-
-        /* Define method */
-        MethodVisitor mv = visitor.visitMethod(ACC_PUBLIC, method.getName(), descriptor, null, null);
+    /* Generates method, what invokes target's constructor */
+    static void generateConstructorProxy(ClassVisitor cv, Method interfaceMethod,
+                                         Type proxyClass, Type targetClass,
+                                         Type[] targetParameters,
+                                         boolean isTargetPublic, boolean useMH, int mhIndex) {
+        String methodName = interfaceMethod.getName();
+        String methodDesc = Type.getMethodDescriptor(interfaceMethod);
+        String targetClassName = targetClass.getInternalName();
+        MethodVisitor mv = cv.visitMethod(ACC_PUBLIC, methodName, methodDesc, null, null);
+        GeneratorAdapter adapter = new GeneratorAdapter(mv, ACC_PUBLIC, methodName, methodDesc);
         mv.visitCode();
 
-        /* Load MethodHandle from array */
-        mv.visitVarInsn(ALOAD, 0);
-        mv.visitFieldInsn(GETFIELD, proxyClassInternal, "mh", MH_ARRAY);
-        mv.visitIntInsn(BIPUSH, methodHandleIndex);
-        mv.visitInsn(AALOAD);
+        /* Load MethodHandle, if required */
+        loadMH(adapter, proxyClass, useMH, mhIndex);
 
-        /* Load class reference into stack, if needed */
-        if(useInstance) {
-            mv.visitVarInsn(ALOAD, 0);
-            mv.visitFieldInsn(GETFIELD, proxyClassInternal, "ref", "L" + targetClassInternal + ";");
+        if(!useMH) {
+            adapter.visitTypeInsn(NEW, targetClassName);
+            adapter.visitInsn(DUP);
         }
 
-        /* Load params */
-        loadParams(mv, method, targetMethod.getParameterTypes());
+        /* Load method parameters into stack */
+        loadArguments(adapter, Type.getArgumentTypes(interfaceMethod), targetParameters);
 
-        /* Invoke MethodHandle */
-        mv.visitMethodInsn(INVOKEVIRTUAL, MH, "invokeExact", mhDescriptor, false);
+        if(useMH) {
+            /* Build MethodHandle descriptor */
+            String mhDescriptor = convertDesc(targetParameters,
+                    isTargetPublic ? targetClass : OBJECT, null);
 
-        /* Use appropriate return instruction */
-        generateReturn(mv, method, targetMethod.getReturnType());
+            /* Select right MethodHandle invoker */
+            String mhInvoker = isTargetPublic? "invokeExact" : "invoke";
 
-        /* End of the method */
-        mv.visitMaxs(0, 0);
-        mv.visitEnd();
-    }
+            /* Invoke MethodHandle */
+            mv.visitMethodInsn(INVOKEVIRTUAL, MH.getInternalName(), mhInvoker, mhDescriptor, false);
+        } else {
+            /* Build target descriptor */
+            String targetDesc = convertDesc(targetParameters, Type.VOID_TYPE, null);
 
-    /* Generates field reader method */
-    static void generateFieldReadMethod(ClassVisitor visitor, Method method, Field field,
-                                        String proxyClassInternal, String targetClassInternal,
-                                        boolean useInstance) {
-        String descriptor = newDescriptor().returns(method.getReturnType()).toString();
-        MethodVisitor mv = visitor.visitMethod(ACC_PUBLIC, method.getName(), descriptor, null, null);
-        mv.visitCode();
-
-        /* Load class instance into stack, if needed */
-        if(useInstance) {
-            mv.visitVarInsn(ALOAD, 0);
-            mv.visitFieldInsn(GETFIELD, proxyClassInternal, "ref", "L" + targetClassInternal + ";");
+            /* Invoke constructor */
+            adapter.visitMethodInsn(INVOKESPECIAL, targetClassName, "<init>", targetDesc, false);
         }
 
-        /* Read field */
-        mv.visitFieldInsn(useInstance? GETFIELD : GETSTATIC, targetClassInternal, field.getName(), Type.getDescriptor(field.getType()));
+        /* Return */
+        handleReturn(adapter, interfaceMethod, isTargetPublic ? targetClass : OBJECT);
+        adapter.returnValue();
 
-        /* Use appropriate return instruction */
-        generateReturn(mv, method, field.getType());
-
-        /* End of the method */
-        mv.visitMaxs(0, 0);
-        mv.visitEnd();
+        /* End method */
+        adapter.endMethod();
     }
 
-    /* Generates field reader method (using MethodHandle) */
-    static void generateFieldReadMHMethod(ClassVisitor visitor, Method method, Field field,
-                                          String proxyClassInternal, String targetClassInternal,
-                                          boolean useInstance, int methodHandleIndex) {
-        String descriptor = newDescriptor().returns(method.getReturnType()).toString();
-        String mhDescriptor = newDescriptor()
-                .accepts((useInstance? "L"+targetClassInternal+";" : ""))
-                .returns(field.getType())
-                .toString();
-        MethodVisitor mv = visitor.visitMethod(ACC_PUBLIC, method.getName(), descriptor, null, null);
+    /* Generates method, what reads field */
+    static void generateFieldReadMethod(ClassVisitor cv, Method interfaceMethod,
+                                        Type proxyClass, Type targetClass, Type fieldType, String fieldName,
+                                        boolean isTargetPublic, boolean useInstance,
+                                        boolean useMH, int mhIndex) {
+        String methodName = interfaceMethod.getName();
+        String methodDesc = Type.getMethodDescriptor(interfaceMethod);
+        MethodVisitor mv = cv.visitMethod(ACC_PUBLIC, methodName, methodDesc, null, null);
+        GeneratorAdapter adapter = new GeneratorAdapter(mv, ACC_PUBLIC, methodName, methodDesc);
         mv.visitCode();
 
-        /* Load MethodHandle from array */
-        mv.visitVarInsn(ALOAD, 0);
-        mv.visitFieldInsn(GETFIELD, proxyClassInternal, "mh", MH_ARRAY);
-        mv.visitIntInsn(BIPUSH, methodHandleIndex);
-        mv.visitInsn(AALOAD);
+        /* Load MethodHandle, if required */
+        loadMH(adapter, proxyClass, useMH, mhIndex);
 
-        /* Load class reference into stack, if needed */
-        if(useInstance) {
-            mv.visitVarInsn(ALOAD, 0);
-            mv.visitFieldInsn(GETFIELD, proxyClassInternal, "ref", "L" + targetClassInternal + ";");
+        /* Load instance, if required */
+        loadInstance(adapter, proxyClass, targetClass, useInstance, isTargetPublic);
+
+        if(useMH) {
+            /* Build MethodHandle descriptor */
+            String mhDescriptor = newDescriptor()
+                    .accepts(useInstance ? (isTargetPublic ? targetClass : OBJECT).getDescriptor() : "")
+                    .returns(fieldType.getDescriptor())
+                    .toString();
+
+            /* Select right MethodHandle invoker */
+            String mhInvoker = isTargetPublic? "invokeExact" : "invoke";
+
+            /* Invoke MethodHandle */
+            adapter.visitMethodInsn(INVOKEVIRTUAL, MH.getInternalName(), mhInvoker, mhDescriptor, false);
+        } else {
+            if(useInstance) {
+                adapter.getField(targetClass, fieldName, fieldType);
+            } else {
+                adapter.getStatic(targetClass, fieldName, fieldType);
+            }
         }
 
-        /* Invoke MethodHandle */
-        mv.visitMethodInsn(INVOKEVIRTUAL, MH, "invokeExact", mhDescriptor, false);
+        /* Return */
+        handleReturn(adapter, interfaceMethod, fieldType);
+        adapter.returnValue();
 
-        /* Use appropriate return instruction */
-        generateReturn(mv, method, field.getType());
-
-        /* End of the method */
-        mv.visitMaxs(0, 0);
-        mv.visitEnd();
+        /* End method */
+        adapter.endMethod();
     }
 
-    /* Generates field writer method */
-    static void generateFieldWriteMethod(ClassVisitor visitor, Method method, Field field,
-                                         String proxyClassInternal, String targetClassInternal,
-                                         boolean useInstance) {
-        String descriptor = newDescriptor().accepts(method.getParameterTypes()[0]).toString();
-        MethodVisitor mv = visitor.visitMethod(ACC_PUBLIC, method.getName(), descriptor, null, null);
+    /* Generates method, what writes field */
+    static void generateFieldWriteMethod(ClassVisitor cv, Method interfaceMethod,
+                                        Type proxyClass, Type targetClass, Type fieldType, String fieldName,
+                                         boolean isTargetPublic, boolean useInstance,
+                                         boolean useMH, int mhIndex) {
+        String methodName = interfaceMethod.getName();
+        String methodDesc = Type.getMethodDescriptor(interfaceMethod);
+        MethodVisitor mv = cv.visitMethod(ACC_PUBLIC, methodName, methodDesc, null, null);
+        GeneratorAdapter adapter = new GeneratorAdapter(mv, ACC_PUBLIC, methodName, methodDesc);
         mv.visitCode();
 
-        /* Load class reference into stack, if needed */
-        if(useInstance) {
-            mv.visitVarInsn(ALOAD, 0);
-            mv.visitFieldInsn(GETFIELD, proxyClassInternal, "ref", "L" + targetClassInternal + ";");
+        /* Load MethodHandle, if required */
+        loadMH(adapter, proxyClass, useMH, mhIndex);
+
+        /* Load instance, if required */
+        loadInstance(adapter, proxyClass, targetClass, useInstance, isTargetPublic);
+
+        /* Load method parameter into stack */
+        adapter.loadArg(0);
+
+        if(useMH) {
+            /* Build MethodHandle descriptor */
+            String mhDescriptor = newDescriptor()
+                    .accepts((useInstance ?
+                            (isTargetPublic ? targetClass : OBJECT).getDescriptor(): "")
+                            + fieldType.getDescriptor())
+                    .toString();
+
+            /* Select right MethodHandle invoker */
+            String mhInvoker = isTargetPublic? "invokeExact" : "invoke";
+
+            /* Invoke MethodHandle */
+            adapter.visitMethodInsn(INVOKEVIRTUAL, MH.getInternalName(), mhInvoker, mhDescriptor, false);
+        } else {
+            if(useInstance) {
+                adapter.putField(targetClass, fieldName, fieldType);
+            } else {
+                adapter.putStatic(targetClass, fieldName, fieldType);
+            }
         }
 
-        /* Load parameters into stack */
-        loadParams(mv, method, field.getType());
+        /* Return */
+        adapter.returnValue();
 
-        /* Put value into field */
-        mv.visitFieldInsn(useInstance? PUTFIELD : PUTSTATIC, targetClassInternal, field.getName(), Type.getDescriptor(field.getType()));
-
-        /* Setters always return void */
-        mv.visitInsn(RETURN);
-
-        /* End of the method */
-        mv.visitMaxs(0, 0);
-        mv.visitEnd();
+        /* End method */
+        adapter.endMethod();
     }
 
-    /* Generates field writer method (using MethodHandle) */
-    static void generateFieldWriteMHMethod(ClassVisitor visitor, Method method, Field field,
-                                           String proxyClassInternal, String targetClassInternal,
-                                           boolean useInstance, int methodHandleIndex) {
-        String descriptor = newDescriptor().accepts(method.getParameterTypes()[0]).toString();
-        String mhDescriptor = newDescriptor()
-                .accepts((useInstance? "L"+targetClassInternal+";" : "") + Type.getDescriptor(field.getType()))
-                .toString();
-        MethodVisitor mv = visitor.visitMethod(ACC_PUBLIC, method.getName(), descriptor, null, null);
+    /* Generates method, what just throws RuntimeException */
+    static void generateFailedMethod(ClassVisitor cv, Method interfaceMethod, String errorMessage) {
+        String methodName = interfaceMethod.getName();
+        String methodDescriptor = Type.getMethodDescriptor(interfaceMethod);
+        MethodVisitor mv = cv.visitMethod(ACC_PUBLIC, methodName, methodDescriptor, null, null);
+        GeneratorAdapter adapter = new GeneratorAdapter(mv, ACC_PUBLIC, methodName, methodDescriptor);
         mv.visitCode();
 
-        /* Load MethodHandle from array */
-        mv.visitVarInsn(ALOAD, 0);
-        mv.visitFieldInsn(GETFIELD, proxyClassInternal, "mh", MH_ARRAY);
-        mv.visitIntInsn(BIPUSH, methodHandleIndex);
-        mv.visitInsn(AALOAD);
+        /* Throw exception */
+        adapter.throwException(Type.getType(RuntimeException.class), errorMessage);
 
-        /* Load class reference into stack, if needed */
-        if(useInstance) {
-            mv.visitVarInsn(ALOAD, 0);
-            mv.visitFieldInsn(GETFIELD, proxyClassInternal, "ref", "L" + targetClassInternal + ";");
-        }
-
-        /* Load parameters into stack */
-        loadParams(mv, method, field.getType());
-
-        /* Invoke MethodHandle */
-        mv.visitMethodInsn(INVOKEVIRTUAL, MH, "invokeExact", mhDescriptor, false);
-
-        /* Setters always return void */
-        mv.visitInsn(RETURN);
-
-        /* End of the method */
-        mv.visitMaxs(0, 0);
-        mv.visitEnd();
+        /* End method generation */
+        adapter.endMethod();
     }
 
-    /* Generates method for public constructor target */
-    static void generateConstructorMethod(ClassVisitor visitor, Method method, Constructor<?> constructor,
-                                          String proxyClassInternal, String targetClassInternal) {
-        String descriptor = newDescriptor().accepts(method.getParameterTypes()).returns(method.getReturnType()).toString();
-        String ctorDesc = newDescriptor().accepts(constructor.getParameterTypes()).toString();
-        MethodVisitor mv = visitor.visitMethod(ACC_PUBLIC, method.getName(), descriptor, null, null);
-        mv.visitCode();
+    /* Helps to box/unbox parameters */
+    private static void loadArguments(GeneratorAdapter ga, Type[] interfaceTypes, Type[] targetTypes) {
+        Ensure.ensureCondition(interfaceTypes.length == targetTypes.length,
+                "Interface and target parameter count don't match!");
+        /* Iterate through all types */
+        for(int i = 0; i < interfaceTypes.length; i++) {
+            Type interfaceType = interfaceTypes[i];
+            Type targetType = targetTypes[i];
 
-        /* Invoke constructor */
-        mv.visitTypeInsn(NEW, targetClassInternal);
-        mv.visitInsn(DUP);
-
-        /* Load parameters */
-        loadParams(mv, method, constructor.getParameterTypes());
-
-        /* Call constructor `<init>` */
-        mv.visitMethodInsn(INVOKESPECIAL, targetClassInternal, "<init>", ctorDesc, false);
-
-        /* Use appropriate return instruction */
-        generateReturn(mv, method, constructor.getDeclaringClass());
-
-        /* End of the method */
-        mv.visitMaxs(0, 0);
-        mv.visitEnd();
-    }
-
-    /* Generates method for non-public constructor target (using MethodHandle) */
-    static void generateConstructorMHMethod(ClassVisitor visitor, Method method, Constructor<?> constructor,
-                                            String proxyClassInternal, String targetClassInternal,
-                                            int methodHandleIndex) {
-        String descriptor = newDescriptor().accepts(method.getParameterTypes()).returns(method.getReturnType()).toString();
-        String mhDescriptor = newDescriptor().accepts(constructor.getParameterTypes())
-                .returns(constructor.getDeclaringClass()).toString();
-        MethodVisitor mv = visitor.visitMethod(ACC_PUBLIC, method.getName(), descriptor, null, null);
-        mv.visitCode();
-
-        /* Load MethodHandle from array */
-        mv.visitVarInsn(ALOAD, 0);
-        mv.visitFieldInsn(GETFIELD, proxyClassInternal, "mh", MH_ARRAY);
-        mv.visitIntInsn(BIPUSH, methodHandleIndex);
-        mv.visitInsn(AALOAD);
-
-        /* Load parameters into stack */
-        loadParams(mv, method, constructor.getParameterTypes());
-
-        /* Invoke MethodHandle */
-        mv.visitMethodInsn(INVOKEVIRTUAL, MH, "invokeExact", mhDescriptor, false);
-
-        /* Use appropriate return instruction */
-        generateReturn(mv, method, constructor.getDeclaringClass());
-
-        /* End of the method */
-        mv.visitMaxs(0, 0);
-        mv.visitEnd();
-    }
-
-    /* Generates exception throwing method */
-    static void generateFailedMethod(ClassVisitor visitor, Method method, String exceptionMessage) {
-        String descriptor = newDescriptor().accepts(method.getParameterTypes()).returns(method.getReturnType()).toString();
-        MethodVisitor mv = visitor.visitMethod(ACC_PUBLIC, method.getName(), descriptor, null, null);
-        mv.visitCode();
-
-        /* Generate exception throw */
-        String RE = ClassTools.unqualifyName(RuntimeException.class);
-        String RE_DESC = newDescriptor().accepts(String.class).toString();
-        mv.visitTypeInsn(NEW, RE);
-        mv.visitInsn(DUP);
-        mv.visitLdcInsn(exceptionMessage);
-        mv.visitMethodInsn(INVOKESPECIAL, RE, "<init>", RE_DESC, false);
-        mv.visitInsn(ATHROW);
-
-        /* End of the method */
-        mv.visitMaxs(0, 0);
-        mv.visitEnd();
-    }
-
-    /* Loads parameters into stack with correct instructions */
-    private static void loadParams(MethodVisitor methodVisitor, Method method, Class<?>... targetTypes) {
-        int paramCount = method.getParameterCount();
-        Ensure.ensureCondition(paramCount == targetTypes.length,
-                "Method and target parameter count don't match!");
-        if(paramCount > 0) {
-            for (int i = 0; i < paramCount; i++) {
-                Class<?> proxyType = method.getParameterTypes()[i];
-                Class<?> targetType = targetTypes[i];
-
-                if(proxyType.isPrimitive()) {
-                    if(!proxyType.getName().equals("void"))
-                        methodVisitor.visitVarInsn(selectLoadInstruction(proxyType.getName()), i + 1);
-
-                    /* Do boxing, if necessary */
-                    if(!targetType.isPrimitive()) {
-                        insertBox(methodVisitor, proxyType);
-                    }
+            ga.loadArg(i);
+            if(isPrimitive(interfaceType)) {
+                if(!isPrimitive(targetType)) {
+                    ga.box(targetType);
+                }
+            } else {
+                if(isPrimitive(targetType)) {
+                    ga.unbox(targetType);
                 } else {
-                    methodVisitor.visitVarInsn(ALOAD, i + 1);
-
-                    /* Do unboxing, if necessary */
-                    if(targetType.isPrimitive()) {
-                        insertUnbox(methodVisitor, proxyType);
+                    if(interfaceType.equals(OBJECT)) {
+                        ga.checkCast(targetType);
+                        ga.cast(interfaceType, targetType);
                     }
                 }
             }
         }
     }
 
-    /* Handle return instruction */
-    private static void generateReturn(MethodVisitor methodVisitor, Method method, Class<?> returnType) {
-        /* Primitive types need special return instructions */
-        if(method.getReturnType().isPrimitive()) {
-            if(!returnType.isPrimitive()) {
-                /* Return type must be boxed version of primitive class */
-                if(returnType != Object.class) {
-                    PrimitiveType.ensureBoxed(returnType);
-                } else {
-                    returnType = PrimitiveType.getBoxed(method.getReturnType());
-                }
+    /* Loads MethodHandle from array */
+    private static void loadMH(GeneratorAdapter adapter, Type proxyClass, boolean useMH, int mhIndex) {
+        if(!useMH) return;
 
-                /* Box the class */
-                insertBox(methodVisitor, returnType);
+        /* Load MethodHandle field */
+        adapter.loadThis();
+        adapter.getField(proxyClass, MHF, MH_ARRAY);
 
-                /* Return */
-                methodVisitor.visitInsn(ARETURN);
-            } else {
-                /* Return value directly */
-                methodVisitor.visitInsn(selectReturnInstruction(method.getReturnType().getName()));
+        /* Load index */
+        adapter.visitIntInsn(BIPUSH, mhIndex);
+
+        /* Load MethodHandle from array */
+        adapter.visitInsn(AALOAD);
+    }
+
+    /* Loads class instance */
+    private static void loadInstance(GeneratorAdapter adapter, Type proxyClass, Type targetClass,
+                                     boolean useInstance, boolean isTargetPublic) {
+        if(!useInstance) return;
+
+        adapter.loadThis();
+        adapter.getField(proxyClass, REFF, isTargetPublic ? targetClass : OBJECT);
+    }
+
+    /* Helps to convert Type[] and Type to descriptor String */
+    @NotNull
+    private static String convertDesc(@NotNull Type[] targetParameters, @NotNull Type returnType, @Nullable Type instanceType) {
+        List<String> params = Stream.of(targetParameters).map(Type::getDescriptor).collect(Collectors.toList());
+        if(instanceType != null) params.add(0, instanceType.getDescriptor());
+        return newDescriptor()
+                .accepts(params.toArray(new String[params.size()]))
+                .returns(returnType.getDescriptor())
+                .toString();
+    }
+
+    /* Handles return type boxing & casting */
+    private static void handleReturn(GeneratorAdapter ga, Method interfaceMethod, Type targetReturnType) {
+        Type returnType = Type.getReturnType(interfaceMethod);
+
+        if(isPrimitive(returnType)) {
+            if(!isPrimitive(targetReturnType)) {
+                ga.unbox(targetReturnType);
             }
         } else {
-            if(!returnType.isPrimitive()) {
-                /* Return value directly */
-                methodVisitor.visitInsn(method.getReturnType() == Void.class ? RETURN : ARETURN);
-            } else {
-                /* Unbox the class, because proxy method's type is primitive */
-                insertUnbox(methodVisitor, method.getReturnType());
-
-                /* Return */
-                methodVisitor.visitInsn(selectReturnInstruction(returnType.getName()));
+            if(isPrimitive(targetReturnType)) {
+                ga.box(targetReturnType);
             }
         }
     }
 
-    /* Selects correct load instruction */
-    private static int selectLoadInstruction(String type) {
-        switch (type) {
-            case "double":
-                return DLOAD;
-            case "float":
-                return FLOAD;
-            case "long":
-                return LLOAD;
-            case "boolean":
-            case "byte":
-            case "short":
-            case "char":
-            case "int":
-                return ILOAD;
+    /* Checks if type is primitive */
+    private static boolean isPrimitive(Type type) {
+        switch (type.getSort()) {
+            case Type.BYTE:
+            case Type.BOOLEAN:
+            case Type.SHORT:
+            case Type.CHAR:
+            case Type.INT:
+            case Type.FLOAT:
+            case Type.LONG:
+            case Type.DOUBLE:
+                return true;
             default:
-                throw new IllegalStateException("Unknown primitive type: " + type);
+                return false;
         }
-    }
-
-    /* Selects correct return instruction */
-    private static int selectReturnInstruction(String type) {
-        switch (type) {
-            case "double":
-                return DRETURN;
-            case "float":
-                return FRETURN;
-            case "long":
-                return LRETURN;
-            case "boolean":
-            case "byte":
-            case "short":
-            case "char":
-            case "int":
-                return IRETURN;
-            case "void":
-                return RETURN;
-            default:
-                throw new IllegalStateException("Unknown primitive type: " + type);
-        }
-    }
-
-    /* Inserts boxing method */
-    private static void insertBox(MethodVisitor methodVisitor, Class<?> primitiveType) {
-        Class<?> boxedType = PrimitiveType.getBoxed(primitiveType);
-        String boxedTypeInternal = ClassTools.unqualifyName(boxedType);
-        String desc = newDescriptor().accepts(primitiveType).returns(boxedType).toString();
-        methodVisitor.visitMethodInsn(INVOKESTATIC, boxedTypeInternal, "valueOf", desc, false);
-    }
-
-    /* Inserts unboxing method */
-    private static void insertUnbox(MethodVisitor methodVisitor, Class<?> boxedType) {
-        Class<?> primitiveType = PrimitiveType.getUnboxed(boxedType);
-        String boxedTypeInternal = ClassTools.unqualifyName(boxedType);
-        String desc = newDescriptor().returns(primitiveType).toString();
-        methodVisitor.visitMethodInsn(INVOKEVIRTUAL, boxedTypeInternal, "intValue", desc, false);
     }
 }
