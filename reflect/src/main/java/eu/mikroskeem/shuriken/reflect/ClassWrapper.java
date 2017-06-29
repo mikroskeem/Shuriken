@@ -122,9 +122,9 @@ public final class ClassWrapper<T> {
      * @throws IllegalArgumentException If class instance is already set
      * @return this {@link ClassWrapper} instance (for chaining)
      */
-    public <I extends T> ClassWrapper<T> setClassInstance(I instance) throws IllegalArgumentException {
+    public ClassWrapper<T> setClassInstance(Object instance) throws IllegalArgumentException {
         if(classInstance != null) throw new IllegalArgumentException("Instance is already set!");
-        this.classInstance = instance;
+        this.classInstance = wrappedClass.cast(instance);
         return this;
     }
 
