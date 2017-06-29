@@ -43,8 +43,6 @@ public final class MethodReflector<T> {
         Ensure.notNull(targetClass, "Target class shouldn't be null!");
         Ensure.notNull(itf, "Interface class shoudln't be null!");
         Ensure.ensureCondition(Modifier.isInterface(itf.getModifiers()), "Interface class should be interface!");
-        Ensure.ensureCondition(Modifier.isPublic(targetClass.getWrappedClass().getModifiers()), // TODO
-                "Target class should be public!");
         Ensure.ensureCondition(Modifier.isPublic(itf.getModifiers()), "Interface should be public!");
         return (MethodReflector<T>) methodReflectors.computeIfAbsent(new Pair<>(targetClass, itf), k ->
             new MethodReflector<>(targetClass, itf)

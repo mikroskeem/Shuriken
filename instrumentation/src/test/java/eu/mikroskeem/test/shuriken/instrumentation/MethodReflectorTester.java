@@ -7,7 +7,6 @@ import eu.mikroskeem.shuriken.reflect.wrappers.TypeWrapper;
 import eu.mikroskeem.test.shuriken.instrumentation.testclasses.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -21,6 +20,8 @@ import static eu.mikroskeem.shuriken.reflect.Reflect.wrapInstance;
  * @author Mark Vainomaa
  */
 public class MethodReflectorTester {
+    private final static String TC11Type = "Leu/mikroskeem/test/shuriken/instrumentation/testclasses/TestClass11;";
+
     @BeforeAll
     public static void setupMethodReflector() {
         MethodReflector.DEBUG = true;
@@ -236,15 +237,36 @@ public class MethodReflectorTester {
     }
 
     @Test
-    @Disabled("Not implemented yet.")
-    public void testBoxingProxy() {
+    public void testReflectionOnNonPublicClass() {
+        ClassWrapper<?> tc = Reflect.getClass(TestClass9.class.getPackage().getName() + ".TestClass10").orElse(null);
+        tc.construct();
+        MethodReflector<TestClass10Reflector> reflector = newInstance(tc, TestClass10Reflector.class);
 
+        TestClass10Reflector reflectorImpl = reflector.getReflector();
+        Assertions.assertEquals("a", reflectorImpl.getA());
+        reflectorImpl.setA("b");
+        Assertions.assertEquals("b", reflectorImpl.getA());
+
+        Object tc11ref = reflectorImpl.getTC11();
+
+        Assertions.assertNotNull(tc11ref);
+        Assertions.assertEquals(tc11ref, reflectorImpl.getTC11Second());
+
+        /* Replace TestClass11 instance */
+        Object newRef = Reflect.wrapClass(tc11ref.getClass()).construct().getClassInstance();
+        reflectorImpl.setTC11(newRef);
+        Assertions.assertEquals(newRef, reflectorImpl.getTC11Second());
     }
 
     @Test
-    @Disabled("Not implemented yet.")
-    public void testUnboxingProxy() {
+    public void testReflectiveConstructionOnNonPublicClass() {
+        ClassWrapper<?> tc = Reflect.getClass(TestClass9.class.getPackage().getName() + ".TestClass11").orElse(null);
+        MethodReflector<TestClass11Reflector> reflector = newInstance(tc, TestClass11Reflector.class);
 
+        TestClass11Reflector reflectorImpl = reflector.getReflector();
+        Object tc11Ref = reflectorImpl.New();
+        Assertions.assertNotNull(tc11Ref);
+        Assertions.assertEquals(tc.getWrappedClass(), tc11Ref.getClass());
     }
 
     public interface DummyInterface {}
@@ -322,5 +344,17 @@ public class MethodReflectorTester {
     public interface TestClass9Reflector {
         @TargetFieldGetter("a") List<String> getA();
         @TargetFieldGetter("a") List<Integer> getAFaulty();
+    }
+
+    public interface TestClass10Reflector {
+        @TargetFieldGetter("a") String getA();
+        @TargetFieldSetter("a") void setA(String a);
+        @TargetFieldGetter(value = "tc11", type = TC11Type) Object getTC11();
+        @TargetFieldSetter(value = "tc11", type = TC11Type) void setTC11(Object a);
+        @TargetMethod(value = "b", desc = "()"+TC11Type) Object getTC11Second();
+    }
+
+    public interface TestClass11Reflector {
+        @TargetConstructor(desc = "()" + TC11Type) Object New();
     }
 }

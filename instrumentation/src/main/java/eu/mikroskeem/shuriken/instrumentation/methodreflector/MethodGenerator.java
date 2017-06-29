@@ -75,11 +75,11 @@ final class MethodGenerator {
             } else if(useInstance) {
                 adapter.loadThis();
                 adapter.loadArg(0);
-                adapter.putField(proxyClass, "ref", targetClass);
+                adapter.putField(proxyClass, REFF, targetClass);
             } else /*if(useMH)*/ {
                 adapter.loadThis();
                 adapter.loadArg(0);
-                adapter.putField(proxyClass, "mh", MH_ARRAY);
+                adapter.putField(proxyClass, MHF, MH_ARRAY);
             }
 
             /* End constructor */
@@ -121,14 +121,18 @@ final class MethodGenerator {
         loadInstance(adapter, proxyClass, targetClass, useInstance, isTargetPublic);
 
         /* Load method parameters into stack */
-        loadArguments(adapter, Type.getArgumentTypes(interfaceMethod), targetParameters);
+        loadArguments(adapter, Type.getArgumentTypes(interfaceMethod), targetParameters, isTargetPublic);
 
         if(useMH) {
             /* Build MethodHandle descriptor (invokeExact is polymorphic) */
-            String mhDescriptor = convertDesc(targetParameters, targetReturnType, useInstance ? targetClass : null);
+            String mhDescriptor = convertDesc(targetParameters, targetReturnType,
+                    useInstance ? (isTargetPublic ? targetClass : OBJECT) : null);
+
+            /* Select right MethodHandle invoker */
+            String mhInvoker = isTargetPublic? "invokeExact" : "invoke";
 
             /* Invoke MethodHandle */
-            mv.visitMethodInsn(INVOKEVIRTUAL, MH.getInternalName(), "invokeExact", mhDescriptor, false);
+            mv.visitMethodInsn(INVOKEVIRTUAL, MH.getInternalName(), mhInvoker, mhDescriptor, false);
         } else {
             /* Figure out what opcode to use */
             int opCode = useInterface ?
@@ -173,7 +177,7 @@ final class MethodGenerator {
         }
 
         /* Load method parameters into stack */
-        loadArguments(adapter, Type.getArgumentTypes(interfaceMethod), targetParameters);
+        loadArguments(adapter, Type.getArgumentTypes(interfaceMethod), targetParameters, isTargetPublic);
 
         if(useMH) {
             /* Build MethodHandle descriptor */
@@ -310,7 +314,7 @@ final class MethodGenerator {
     }
 
     /* Helps to box/unbox parameters */
-    private static void loadArguments(GeneratorAdapter ga, Type[] interfaceTypes, Type[] targetTypes) {
+    private static void loadArguments(GeneratorAdapter ga, Type[] interfaceTypes, Type[] targetTypes, boolean isTargetPublic) {
         Ensure.ensureCondition(interfaceTypes.length == targetTypes.length,
                 "Interface and target parameter count don't match!");
         /* Iterate through all types */
@@ -319,6 +323,10 @@ final class MethodGenerator {
             Type targetType = targetTypes[i];
 
             ga.loadArg(i);
+
+            /* Do not do boxing/unboxing if MethodHandle.invoke is used, it handles them on its own */
+            if(!isTargetPublic) continue;
+
             if(isPrimitive(interfaceType)) {
                 if(!isPrimitive(targetType)) {
                     ga.box(targetType);

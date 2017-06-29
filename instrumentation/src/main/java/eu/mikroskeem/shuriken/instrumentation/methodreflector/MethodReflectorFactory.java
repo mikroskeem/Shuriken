@@ -35,9 +35,6 @@ final class MethodReflectorFactory {
     private final GeneratedClassLoader GCL = new GeneratedClassLoader(MethodReflectorFactory.class.getClassLoader());
     private final MethodHandles.Lookup mhLookup = MethodHandles.lookup();
 
-    /* Constants */
-    private final static Type OBJECT_TYPE = Type.getType(Object.class);
-
     /* Error messages */
     private final static String NO_CLASS_INSTANCE_PRESET = "Interface targets instance methods, but class instance " +
             "is not present in ClassWrapper!";
@@ -163,6 +160,13 @@ final class MethodReflectorFactory {
                         useMH = true;
                     }
 
+                    if(!Modifier.isPublic(targetField.getType().getModifiers())) {
+                        /* Must use MethodHandle, again */
+                        if(!classMustUseMH) classMustUseMH = true;
+                        fieldType = OBJECT;
+                        useMH = true;
+                    }
+
                     if(Modifier.isFinal(targetField.getModifiers())) {
                         /* Proxy class must use method handles */
                         if(!classMustUseMH) classMustUseMH = true;
@@ -214,7 +218,7 @@ final class MethodReflectorFactory {
                 /* Ensure interface method returns given class type or Object */
                 Ensure.ensureCondition(
                         interfaceReturnType.equals(targetClassType) ||
-                        interfaceReturnType.equals(OBJECT_TYPE),
+                        interfaceReturnType.equals(OBJECT),
                         CTOR_INVOKER_WRONG_RETURN_TYPE + interfaceMethod
                 );
                 Type[] targetParameters = interfaceParameters;
@@ -227,7 +231,7 @@ final class MethodReflectorFactory {
                 }
 
                 /* Constructor return type cannot be Object anymore */
-                Ensure.ensureCondition(!targetReturnType.equals(OBJECT_TYPE) &&
+                Ensure.ensureCondition(!targetReturnType.equals(OBJECT) &&
                                 targetClass != Object.class, /* People like to do weird stuff */
                         CTOR_TO_USE_OBJECT_PLEASE_OVERRIDE + interfaceMethod);
 
@@ -322,6 +326,13 @@ final class MethodReflectorFactory {
             if(!isTargetPublic) {
                 /* Must use MethodHandle */
                 if(!classMustUseMH) classMustUseMH = true;
+                useMH = true;
+            }
+
+            if(!Modifier.isPublic(targetMethod.getReturnType().getModifiers())) {
+                        /* Must use MethodHandle, again */
+                if(!classMustUseMH) classMustUseMH = true;
+                targetReturnType = OBJECT;
                 useMH = true;
             }
 
