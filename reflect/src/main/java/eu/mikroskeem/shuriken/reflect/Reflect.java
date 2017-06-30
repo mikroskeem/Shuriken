@@ -137,7 +137,7 @@ public class Reflect {
                 if (!field.isAccessible()) field.setAccessible(true);
                 return field;
             }
-            catch (SecurityException ignored){}
+            catch (NullPointerException|SecurityException ignored){}
             return null;
         }
 
@@ -157,7 +157,7 @@ public class Reflect {
                 if (!method.isAccessible()) method.setAccessible(true);
                 return method;
             }
-            catch (SecurityException ignored){}
+            catch (NullPointerException|SecurityException ignored){}
             return null;
         }
 
