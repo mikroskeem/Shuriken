@@ -43,6 +43,7 @@ final class MethodReflectorFactory {
     private final static String FAILED_TO_UNREFLECT = "Failed to unreflect target: ";
     private final static String FAILED_TO_FIND_FIELD = "Could not find target field for interface method: ";
     private final static String FAILED_TO_FIND_METHOD = "Could not find target method for interface method: ";
+    private final static String FAILED_TO_FIND_CTOR = "Could not find target constructor for interface method: ";
     private final static String SETTER_WRONG_RETURN_TYPE = "Setters can only return void type! ";
     private final static String SETTER_WRONG_PARAM_COUNT = "Setters can only take one argument! ";
     private final static String GETTER_WRONG_RETURN_TYPE = "Getters can't return void type! ";
@@ -237,6 +238,7 @@ final class MethodReflectorFactory {
 
                 /* Try to find target constructor */
                 Constructor<?> targetConstructor = findDeclaredConstructor(targetClass, targetParameters);
+                Ensure.notNull(targetConstructor, FAILED_TO_FIND_CTOR + interfaceMethod);
 
                 /* Get needed target constructor info */
                 boolean useMH = false;
