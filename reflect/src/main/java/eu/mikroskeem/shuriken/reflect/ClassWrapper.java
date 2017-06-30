@@ -311,6 +311,7 @@ public final class ClassWrapper<T> {
                     })
                     .findFirst().orElse(null);
         } while (theMethod == null && (cls = cls.getSuperclass()) != null);
+        theMethod = Reflect.Utils.setMethodAccessible(theMethod);
         if(theMethod == null) Reflect.Utils.throwException(new NoSuchMethodException(methodName));
         return theMethod;
     }
@@ -325,6 +326,7 @@ public final class ClassWrapper<T> {
                     .filter(f -> fieldName.equals(f.getName()) && (type == Object.class || f.getType() == type))
                     .findFirst().orElse(null);
         } while (field == null && (cls = cls.getSuperclass()) != null);
+        field = Reflect.Utils.setFieldAccessible(field);
         return field;
     }
 
