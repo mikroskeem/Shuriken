@@ -562,6 +562,10 @@ final class MethodReflectorFactory {
             });
         }
 
+        /* Debug gogogogogo */
+        if(MethodReflector.DEBUG)
+            System.out.format("Replaced placeholders: '%s' -> '%s'%n", source, a[0]);
+
         return a[0];
     }
 }
