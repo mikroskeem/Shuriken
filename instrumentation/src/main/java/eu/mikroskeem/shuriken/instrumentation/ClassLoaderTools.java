@@ -1,11 +1,11 @@
 package eu.mikroskeem.shuriken.instrumentation;
 
-import eu.mikroskeem.shuriken.common.Ensure;
-import eu.mikroskeem.shuriken.common.SneakyThrow;
+import eu.mikroskeem.shuriken.instrumentation.methodreflector.TargetFieldGetter;
+import eu.mikroskeem.shuriken.instrumentation.methodreflector.TargetFieldSetter;
+import eu.mikroskeem.shuriken.instrumentation.methodreflector.TargetMethod;
 import eu.mikroskeem.shuriken.reflect.ClassWrapper;
-import eu.mikroskeem.shuriken.reflect.FieldWrapper;
 import eu.mikroskeem.shuriken.reflect.Reflect;
-import eu.mikroskeem.shuriken.reflect.utils.FunctionalField;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
 import java.net.URL;
@@ -16,6 +16,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import static eu.mikroskeem.shuriken.common.Ensure.*;
+import static eu.mikroskeem.shuriken.instrumentation.methodreflector.MethodReflector.newInstance;
 import static eu.mikroskeem.shuriken.reflect.wrappers.TypeWrapper.of;
 
 
@@ -45,11 +47,11 @@ public final class ClassLoaderTools {
      */
     @Nullable
     public static Class<?> defineClass(ClassLoader classLoader, String name, byte[] data) throws ClassFormatError {
-        Ensure.notNull(classLoader, "Classloader shouldn't be null!");
-        Ensure.notNull(name, "Name shouldn't be null!");
-        Ensure.notNull(data, "Class data shouldn't be null!");
+        notNull(classLoader, "Classloader shouldn't be null!");
+        notNull(name, "Name shouldn't be null!");
+        notNull(data, "Class data shouldn't be null!");
         if(Reflect.THE_UNSAFE != null)
-            return Reflect.wrapInstance(Reflect.THE_UNSAFE)
+            return Reflect.THE_UNSAFE
                     .invokeMethod("defineClass", Class.class,
                             of(name), of(byte[].class, data), of(int.class, 0),
                             of(int.class, data.length), of(ClassLoader.class, classLoader),
@@ -63,54 +65,43 @@ public final class ClassLoaderTools {
     /**
      * {@link sun.misc.URLClassPath} tools
      */
-    public static class URLClassLoaderTools<UCP, UCPLoader> {
-        private final ClassWrapper<URLClassLoader> sysCl;
-        private final ClassWrapper<UCP> ucp;
-        private final ClassWrapper<UCPLoader> ucpLoader;
-        private final Map<String, UCPLoader> lmap;
-        private final ArrayList<UCPLoader> loaders;
+    public static class URLClassLoaderTools {
+        private final ClassWrapper<URLClassLoader> cl;
+        private final UCPAccessor ucpAccessor;
 
         /**
          * Constructs an {@link sun.misc.URLClassPath} wrapper for {@link URLClassLoader} instance
          */
-        @SuppressWarnings({"ConstantConditions", "unchecked"})
+        @SuppressWarnings("unchecked")
         public URLClassLoaderTools(URLClassLoader urlClassLoader) {
-            sysCl = Reflect.wrapInstance(urlClassLoader);
-            ucp = (ClassWrapper<UCP>) Reflect.getClass("sun.misc.URLClassPath").get();
-            ucpLoader = (ClassWrapper<UCPLoader>) Reflect.getClass("sun.misc.URLClassPath$Loader").get();
-            ucp.setClassInstance(sysCl.getField("ucp", ucp.getWrappedClass()).get().read());
+            cl = Reflect.wrapInstance(urlClassLoader);
+            ClassWrapper<?> ucp = Reflect.getClassThrows("sun.misc.URLClassPath");
+            ucp.setClassInstance(ensurePresent(cl.getField("ucp", ucp.getWrappedClass()),
+                    "Could not get URLClassPath instance").read());
+
+            /* Set up URLClassPath accessor */
+            ucpAccessor = newInstance(ucp, UCPAccessor.class).getReflector();
 
             /* Try to get loaders map */
-            Map<String, UCPLoader> lmap = null;
-            Optional<FieldWrapper<HashMap>> theLmap = ucp.getField("lmap", HashMap.class);
-            if(theLmap.isPresent()) {
-                lmap = (HashMap<String, UCPLoader>) theLmap.get().read();
-            } else {
-                /* IBM JVM-specific I guess */
-                Optional<FieldWrapper<Map>> ibmLmap = ucp.getField("lmap", Map.class);
-                if(ibmLmap.isPresent()) {
-                    lmap = (Map<String, UCPLoader>) ibmLmap.get().read();
-                } else {
-                    SneakyThrow.throwException(new NoSuchFieldException("lmap"));
-                }
-            }
-
-            loaders = (ArrayList<UCPLoader>) ucp.getField("loaders", ArrayList.class).get().read();
-            this.lmap = lmap;
+            notNull(Optional.ofNullable((Map<String, Object>) ucpAccessor.getLmap())
+                    .orElse(ucpAccessor.getIBMLmap()), "Could not find 'lmap' field!");
         }
 
         /**
          * Adds an url to {@link sun.misc.URLClassPath}
          * @param url {@link URL} to add
          */
+        @Contract("null -> fail")
         public void addURL(URL url) {
-            Ensure.ensureCondition(url != null, "URL should not be null!");
-            Ensure.ensureCondition(url.getProtocol().equals("file"), "Only file:// protocol is supported!");
-            ucp.invokeMethod("addURL", void.class, of(url));
-            UCPLoader ldr = ucp.invokeMethod("getLoader",
-                    ucpLoader.getWrappedClass(), of(url));
-            loaders.add(ldr);
-            lmap.put("file://" + url.getFile(), ldr);
+            notNull(url, "URL should not be null!");
+            ensureCondition(url.getProtocol().equals("file"), "Only file:// protocol is supported!");
+
+            ucpAccessor.addURL(url);
+            Object ucpLoader = ucpAccessor.getLoader(url);
+            ucpAccessor.getLoaders().add(ucpLoader);
+            Optional.ofNullable((Map<String, Object>) ucpAccessor.getLmap())
+                    .orElse(ucpAccessor.getIBMLmap())
+                    .put("file://" + url.getFile(), ucpLoader);
         }
 
         /**
@@ -119,11 +110,32 @@ public final class ClassLoaderTools {
         public void resetCache() {
             if(System.getProperties().getProperty("java.vendor").contains("Oracle")) { /* Oracle JVM-specific */
                 /* Re-enable lookup cache (the addURL will disable it) */
-                ucp.getField("lookupCacheEnabled", boolean.class).ifPresent(FunctionalField::writeTrue);
+                ucpAccessor.setLookupCacheEnabled(false);
 
                 /* Force cache repopulation */
-                ucp.getField("lookupCacheURLs", URL[].class).ifPresent(FunctionalField::writeNull);
-                ucp.getField("lookupCacheLoader", ClassLoader.class).ifPresent(FunctionalField::writeNull);
+                ucpAccessor.setLookupCacheURLs(null);
+                ucpAccessor.setLookupCacheLoader(null);
+            }
+        }
+
+        public interface UCPAccessor {
+            void addURL(URL url);
+
+            @TargetMethod(desc = "(Ljava/net/URL;)Lsun/misc/URLClassPath$Loader;")
+            Object getLoader(URL url);
+
+            @TargetFieldGetter("lmap") default HashMap<String, Object> getLmap() { return null; }
+            @TargetFieldGetter("lmap") default Map<String, Object> getIBMLmap() { return null; }
+            @TargetFieldGetter("loaders") ArrayList<Object> getLoaders();
+
+            @TargetFieldSetter("lookupCacheEnabled") default void setLookupCacheEnabled(boolean value) {
+                throw new RuntimeException("Could not find 'lookupCacheEnabled' field!");
+            }
+            @TargetFieldSetter("lookupCacheURLs") default void setLookupCacheURLs(URL[] urls) {
+                throw new RuntimeException("Could not find 'lookupCacheURLs' field!");
+            }
+            @TargetFieldSetter("lookupCacheLoader") default void setLookupCacheLoader(ClassLoader classLoader) {
+                throw new RuntimeException("Could not find 'lookupCacheLoader' field!");
             }
         }
     }

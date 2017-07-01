@@ -26,7 +26,7 @@ public class Reflect {
     private final static Map<ClassEntry, Class<?>> FOUND_CLASS_MAP;
 
     /** The instance of {@link sun.misc.Unsafe}. Might be null on unsupported JVMs */
-    public final static Object THE_UNSAFE;
+    public final static ClassWrapper<?> THE_UNSAFE;
 
     /**
      * Private constructor, do not use
@@ -77,6 +77,7 @@ public class Reflect {
      * Get {@link Class} by name (like <pre>eu.mikroskeem.reflect.Reflect</pre>)
      *
      * @param name Class name
+     * @param classLoader Classloader where class should be looked
      * @return Class object or empty, if class wasn't found
      */
     @Contract("null, _ -> fail")
@@ -100,6 +101,39 @@ public class Reflect {
         } else {
             return Optional.empty();
         }
+    }
+
+    /**
+     * Get {@link Class} by name (like <pre>eu.mikroskeem.reflect.Reflect</pre>)
+     *
+     * @param name Class name
+     * @return Class object
+     * @throws ClassNotFoundException If class wasn't found
+     */
+    @NotNull
+    @Contract("null -> fail")
+    public static ClassWrapper<?> getClassThrows(String name) {
+        return getClass(name).orElseGet(() -> {
+            Reflect.Utils.throwException(new ClassNotFoundException(name));
+            return null;
+        });
+    }
+
+    /**
+     * Get {@link Class} by name (like <pre>eu.mikroskeem.reflect.Reflect</pre>)
+     *
+     * @param name Class name
+     * @return Class object
+     * @param classLoader Classloader where class should be looked
+     * @throws ClassNotFoundException If class wasn't found
+     */
+    @NotNull
+    @Contract("null, null -> fail")
+    public static ClassWrapper<?> getClassThrows(String name, ClassLoader classLoader) {
+        return getClass(name).orElseGet(() -> {
+            Reflect.Utils.throwException(new ClassNotFoundException(name));
+            return null;
+        });
     }
 
     /**
@@ -247,6 +281,6 @@ public class Reflect {
         FOUND_CLASS_MAP = new WeakHashMap<>();
         THE_UNSAFE = Reflect.getClass("sun.misc.Unsafe")
                 .flatMap(u -> u.getField("theUnsafe", Object.class))
-                .map(FieldWrapper::read).orElse(null);
+                .map(FieldWrapper::read).map(Reflect::wrapInstance).orElse(null);
     }
 }
