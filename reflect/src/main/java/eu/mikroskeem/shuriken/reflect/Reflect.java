@@ -105,10 +105,11 @@ public class Reflect {
 
     /**
      * Get {@link Class} by name (like <pre>eu.mikroskeem.reflect.Reflect</pre>)
+     * <br>
+     * Throws {@link ClassNotFoundException} if class wasn't found
      *
      * @param name Class name
      * @return Class object
-     * @throws ClassNotFoundException If class wasn't found
      */
     @NotNull
     @Contract("null -> fail")
@@ -121,11 +122,12 @@ public class Reflect {
 
     /**
      * Get {@link Class} by name (like <pre>eu.mikroskeem.reflect.Reflect</pre>)
+     * <br>
+     * Throws {@link ClassNotFoundException} if class wasn't found
      *
      * @param name Class name
      * @return Class object
      * @param classLoader Classloader where class should be looked
-     * @throws ClassNotFoundException If class wasn't found
      */
     @NotNull
     @Contract("null, null -> fail")
