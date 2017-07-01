@@ -385,7 +385,7 @@ public class MethodReflectorTester {
     }
 
     public interface TestClass12PlaceholderReflector {
-        /* Note: target return type isn't checked on construcor invokers */
+        /* Note: target return type isn't checked on constructor invokers */
         @TargetConstructor(desc = "(){tc12}") Object New();
         @TargetConstructor(desc = "({tc7}){tc12}") Object New(Object tc7);
 
