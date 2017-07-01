@@ -20,7 +20,9 @@ import static eu.mikroskeem.shuriken.reflect.Reflect.wrapInstance;
  * @author Mark Vainomaa
  */
 public class MethodReflectorTester {
+    private final static String TC7Type = "Leu/mikroskeem/test/shuriken/instrumentation/testclasses/TestClass7;";
     private final static String TC11Type = "Leu/mikroskeem/test/shuriken/instrumentation/testclasses/TestClass11;";
+    private final static String TC12Type = "Leu/mikroskeem/test/shuriken/instrumentation/testclasses/TestClass12;";
 
     @BeforeAll
     public static void setupMethodReflector() {
@@ -269,6 +271,30 @@ public class MethodReflectorTester {
         Assertions.assertEquals(tc.getWrappedClass(), tc11Ref.getClass());
     }
 
+    @Test
+    public void testReflectingWithPlaceholders() {
+        ClassWrapper<TestClass12> tc = Reflect.wrapClass(TestClass12.class);
+        ClassWrapper<TestClass7> tc7 = Reflect.wrapClass(TestClass7.class);
+        tc.construct();
+        tc7.construct();
+        MethodReflector.registerAnnotationReplacement("tc7", TC7Type);
+        MethodReflector.registerAnnotationReplacement("tc12", TC12Type);
+        MethodReflector<TestClass12PlaceholderReflector> reflector = newInstance(tc, TestClass12PlaceholderReflector.class);
+
+        TestClass12PlaceholderReflector reflectorImpl = reflector.getReflector();
+
+
+        Object tc12Ref = reflectorImpl.New();
+        Object tc12Ref2 = reflectorImpl.a(tc7.getClassInstance());
+        Object tc12Ref3 = reflectorImpl.New(tc7.getClassInstance());
+
+        Assertions.assertNotNull(tc12Ref);
+        Assertions.assertNotNull(tc12Ref2);
+
+        Assertions.assertEquals(tc.getWrappedClass(), tc12Ref.getClass());
+        Assertions.assertEquals(tc.getWrappedClass(), tc12Ref2.getClass());
+    }
+
     public interface DummyInterface {}
     public interface DummyInterface2 {}
 
@@ -356,5 +382,13 @@ public class MethodReflectorTester {
 
     public interface TestClass11Reflector {
         @TargetConstructor(desc = "()" + TC11Type) Object New();
+    }
+
+    public interface TestClass12PlaceholderReflector {
+        /* Note: target return type isn't checked on construcor invokers */
+        @TargetConstructor(desc = "(){tc12}") Object New();
+        @TargetConstructor(desc = "({tc7}){tc12}") Object New(Object tc7);
+
+        @TargetMethod(desc = "({tc7}){tc12}") TestClass12 a(Object a);
     }
 }

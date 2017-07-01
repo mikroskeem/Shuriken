@@ -7,6 +7,8 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.Modifier;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
 
@@ -16,12 +18,13 @@ import java.util.WeakHashMap;
  */
 public final class MethodReflector<T> {
     private final static Map<Pair<ClassWrapper<?>, Class<?>>, MethodReflector<?>> methodReflectors = new WeakHashMap<>();
+    private final static Map<String, String> replacements = new HashMap<>();
     private final static MethodReflectorFactory factory = new MethodReflectorFactory();
     public static boolean DEBUG = false;
     private MethodReflector(ClassWrapper<?> target, Class<T> itf) {
         this.clazz = target;
         this.itf = itf;
-        this.interfaceImpl = factory.generateReflector(target, itf);
+        this.interfaceImpl = factory.generateReflector(target, itf, replacements);
     }
 
     private final ClassWrapper<?> clazz;
@@ -47,6 +50,40 @@ public final class MethodReflector<T> {
         return (MethodReflector<T>) methodReflectors.computeIfAbsent(new Pair<>(targetClass, itf), k ->
             new MethodReflector<>(targetClass, itf)
         );
+    }
+
+    /**
+     * Gets annotation placeholder replacements
+     *
+     * @return Map of placeholders and values
+     */
+    @NotNull
+    @Contract(pure = true)
+    public static Map<String, String> getAnnotationReplacements() {
+        return Collections.unmodifiableMap(replacements);
+    }
+
+    /**
+     * Registers new annotation placeholder replacement
+     *
+     * @param placeholder Placeholder name, like <pre>nms_ver</pre>
+     * @param replacement Replacement string, like <pre>v1_12_R1</pre>
+     */
+    @Contract("null, null -> fail")
+    public static void registerAnnotationReplacement(String placeholder, String replacement) {
+        Ensure.notNull(placeholder, "Placeholder shouldn't be null!");
+        Ensure.notNull(replacement, "Replacement shouldn't be null!");
+        replacements.compute(placeholder, (k,v) -> replacement);
+    }
+
+    /**
+     * Unregisters placeholder replacement
+     *
+     * @param placeholder Placeholder name, like <pre>nms_ver</pre>
+     */
+    @Contract("null -> fail")
+    public static void unregisterAnnotationReplacement(String placeholder) {
+        replacements.compute(Ensure.notNull(placeholder, "Placeholder shouldn't be null!"), (k,v) -> null);
     }
 
     /**

@@ -4,6 +4,7 @@ import eu.mikroskeem.shuriken.common.Ensure;
 import eu.mikroskeem.shuriken.reflect.ClassWrapper;
 import eu.mikroskeem.shuriken.reflect.Reflect;
 import eu.mikroskeem.shuriken.reflect.wrappers.TypeWrapper;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.ClassVisitor;
@@ -54,7 +55,7 @@ final class MethodReflectorFactory {
             "annotation, or change method return type: ";
 
     @SuppressWarnings("unchecked")
-    <T> T generateReflector(ClassWrapper<?> target, Class<T> intf) {
+    <T> T generateReflector(ClassWrapper<?> target, Class<T> intf, Map<String, String> r) {
         List<MethodHandle> methodHandles = new ArrayList<>();
         boolean isTargetPublic = Modifier.isPublic(target.getWrappedClass().getModifiers());
         boolean classMustUseInstance = false;
@@ -108,8 +109,9 @@ final class MethodReflectorFactory {
             if(hasAnnotation && targetMethodInfo == null) {
                 /* Field getter/setter */
                 if(fieldGetterInfo != null || fieldSetterInfo != null) {
-                    String fieldName = Ensure.notNull(either(fieldGetterInfo, fieldSetterInfo, "value"), FIELD_NAME_IS_NULL);
-                    String annotationFieldType = either(fieldGetterInfo, fieldSetterInfo, "type");
+                    String fieldName = r(Ensure.notNull(either(fieldGetterInfo, fieldSetterInfo, "value"),
+                            FIELD_NAME_IS_NULL), r);
+                    String annotationFieldType = r(either(fieldGetterInfo, fieldSetterInfo, "type"), r);
                     boolean isSetter = fieldSetterInfo != null;
                     Type fieldType;
 
@@ -227,8 +229,8 @@ final class MethodReflectorFactory {
 
                 /* Read custom descriptor, if present */
                 if(!targetConstructorInfo.desc().isEmpty()) {
-                    targetParameters = Type.getArgumentTypes(targetConstructorInfo.desc());
-                    targetReturnType = Type.getReturnType(targetConstructorInfo.desc());
+                    targetParameters = Type.getArgumentTypes(r(targetConstructorInfo.desc(), r));
+                    targetReturnType = Type.getReturnType(r(targetConstructorInfo.desc(), r));
                 }
 
                 /* Constructor return type cannot be Object anymore */
@@ -291,11 +293,11 @@ final class MethodReflectorFactory {
                     interfaceMethod.getName();
 
             Type[] targetParameters = targetMethodInfo != null && !targetMethodInfo.desc().isEmpty()?
-                    Type.getArgumentTypes(targetMethodInfo.desc())
+                    Type.getArgumentTypes(r(targetMethodInfo.desc(), r))
                     :
                     Type.getArgumentTypes(interfaceMethod);
             Type targetReturnType = targetMethodInfo != null && !targetMethodInfo.desc().isEmpty()?
-                    Type.getReturnType(targetMethodInfo.desc())
+                    Type.getReturnType(r(targetMethodInfo.desc(), r))
                     :
                     Type.getReturnType(interfaceMethod);
 
@@ -479,5 +481,41 @@ final class MethodReflectorFactory {
         if(one != null) val = Reflect.wrapInstance(one).invokeMethod(value, String.class);
         if((val == null || val.isEmpty()) && two != null) val = Reflect.wrapInstance(two).invokeMethod(value, String.class);
         return val != null && !val.isEmpty() ? val : null;
+    }
+
+    /* Replace placeholders in string. Sorry for short name, but this method isn't public anyway :) */
+    @Nullable
+    @Contract("_, null -> fail")
+    private String r(String source, Map<String, String> replacements) {
+        Ensure.notNull(replacements, "Replacements map shouldn't be null!");
+        if(source == null) return null;
+
+        /* Find placeholders */
+        List<String> foundPlaceholders = new ArrayList<>();
+        StringBuilder lastPlaceholder = null;
+        for(char c: source.toCharArray()) {
+            if(c == '{' && lastPlaceholder == null) {
+                lastPlaceholder = new StringBuilder();
+            } else if(lastPlaceholder != null && c != '}') {
+                lastPlaceholder.append(c);
+            } else if(lastPlaceholder != null) {
+                foundPlaceholders.add(lastPlaceholder.toString());
+                lastPlaceholder = null;
+            }
+        }
+
+        /* Amazing hack, wow */
+        String[] a = new String[1];
+        a[0] = source;
+
+        /* Replace placeholders */
+        for(String placeholder: foundPlaceholders) {
+            replacements.computeIfPresent(placeholder, (k, value) -> {
+                a[0] = a[0].replace("{" + k + "}", value);
+                return value;
+            });
+        }
+
+        return a[0];
     }
 }
