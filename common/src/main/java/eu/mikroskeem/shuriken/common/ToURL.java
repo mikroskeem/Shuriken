@@ -1,5 +1,6 @@
 package eu.mikroskeem.shuriken.common;
 
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
@@ -13,8 +14,14 @@ import java.nio.file.Path;
  * @author Mark Vainomaa
  */
 public class ToURL {
-    /** Convert {@link Path} to {@link URL} */
+    /**
+     * Converts {@link Path} to {@link URL}
+     *
+     * @param path Path
+     * @return {@link URL} object
+     */
     @NotNull
+    @Contract("null -> fail")
     public static URL to(Path path) {
         try {
             return Ensure.notNull(path, "Path shouldn't be null!").toUri().toURL();
@@ -23,8 +30,14 @@ public class ToURL {
         return null;
     }
 
-    /** Convert {@link File} to {@link URL} */
+    /**
+     * Converts {@link File} to {@link URL}
+     *
+     * @param file File
+     * @return {@link URL} object
+     */
     @NotNull
+    @Contract("null -> fail")
     public static URL to(File file) {
         try {
             return Ensure.notNull(file, "File shouldn't be null!").toURI().toURL();

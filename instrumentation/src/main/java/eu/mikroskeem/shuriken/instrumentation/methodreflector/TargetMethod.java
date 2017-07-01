@@ -19,14 +19,19 @@ public @interface TargetMethod {
      *
      * Method description is taken from interface method, unless {@link TargetMethod#desc()}
      * is preset
+     *
+     * @return Target method name
      */
     String value() default "";
 
     /**
-     * Target method description, like <pre>Ljava/lang/String;</pre>
+     * Target method description, like <pre>()Ljava/lang/String;</pre>
      *
      * Useful for non-public classes. Use {@link Object} in place of given parameters in
      * interface method if defined.
+     *
+     * @return Method descriptor
+     * @see org.objectweb.asm.Type
      */
     String desc() default "";
 }

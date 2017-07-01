@@ -15,10 +15,13 @@ import java.lang.annotation.Target;
 @Target(ElementType.METHOD)
 public @interface TargetConstructor {
     /**
-     * Target constructor description, like <pre>Ljava/lang/String;</pre>
+     * Target constructor descriptor, like <pre>()Ljava/lang/String;</pre>
      *
      * Useful for non-public classes. Use {@link Object} in place of given parameters in
      * interface method if defined.
+     *
+     * @return Constructor descriptor
+     * @see org.objectweb.asm.Type
      */
     String desc() default "";
 }

@@ -2,8 +2,8 @@ package eu.mikroskeem.shuriken.instrumentation.methodreflector;
 
 import eu.mikroskeem.shuriken.common.Ensure;
 import eu.mikroskeem.shuriken.instrumentation.ClassTools;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
@@ -21,6 +21,8 @@ import static org.objectweb.asm.Opcodes.*;
 
 
 /**
+ * Proxy class method generator
+ *
  * @author Mark Vainomaa
  */
 final class MethodGenerator {
@@ -34,6 +36,7 @@ final class MethodGenerator {
     final static Type OBJECT = Type.getType(Object.class);
 
     /* Generates class base */
+    @Contract("null, _, _, _, null, null -> fail")
     static void generateClassBase(ClassVisitor cv,
                                   boolean useInstance, boolean useMH, boolean isTargetPublic,
                                   Type proxyClass, Type targetClass) {
@@ -60,7 +63,7 @@ final class MethodGenerator {
             /* Generate constructor */
             mv = cv.visitMethod(ACC_PUBLIC, "<init>", descriptor, null, null);
             adapter = new GeneratorAdapter(mv, ACC_PUBLIC, "<init>", descriptor);
-            mv.visitCode();
+            adapter.visitCode();
             adapter.loadThis();
             adapter.visitMethodInsn(INVOKESPECIAL, OBJECT.getInternalName(), "<init>", "()V", false);
 
@@ -103,6 +106,7 @@ final class MethodGenerator {
     }
 
     /* Generates proxy method, what invokes target method */
+    @Contract("null, null, null, null, null, null, null, null, _, _, _, _, _ -> fail")
     static void generateMethodProxy(ClassVisitor cv, Method interfaceMethod,
                                     Type proxyClass, Type targetClass, Type interfaceClass,
                                     String targetMethodName, Type[] targetParameters, Type targetReturnType,
@@ -112,7 +116,7 @@ final class MethodGenerator {
         String methodDesc = Type.getMethodDescriptor(interfaceMethod);
         MethodVisitor mv = cv.visitMethod(ACC_PUBLIC, methodName, methodDesc, null, null);
         GeneratorAdapter adapter = new GeneratorAdapter(mv, ACC_PUBLIC, methodName, methodDesc);
-        mv.visitCode();
+        adapter.visitCode();
 
         /* Load MethodHandle, if required */
         loadMH(adapter, proxyClass, useMH, mhIndex);
@@ -157,6 +161,7 @@ final class MethodGenerator {
     }
 
     /* Generates method, what invokes target's constructor */
+    @Contract("null, null, null, null, null, _, _, _ -> fail")
     static void generateConstructorProxy(ClassVisitor cv, Method interfaceMethod,
                                          Type proxyClass, Type targetClass,
                                          Type[] targetParameters,
@@ -166,7 +171,7 @@ final class MethodGenerator {
         String targetClassName = targetClass.getInternalName();
         MethodVisitor mv = cv.visitMethod(ACC_PUBLIC, methodName, methodDesc, null, null);
         GeneratorAdapter adapter = new GeneratorAdapter(mv, ACC_PUBLIC, methodName, methodDesc);
-        mv.visitCode();
+        adapter.visitCode();
 
         /* Load MethodHandle, if required */
         loadMH(adapter, proxyClass, useMH, mhIndex);
@@ -206,6 +211,7 @@ final class MethodGenerator {
     }
 
     /* Generates method, what reads field */
+    @Contract("null, null, null, null, null, null, _, _, _, _ -> fail")
     static void generateFieldReadMethod(ClassVisitor cv, Method interfaceMethod,
                                         Type proxyClass, Type targetClass, Type fieldType, String fieldName,
                                         boolean isTargetPublic, boolean useInstance,
@@ -214,7 +220,7 @@ final class MethodGenerator {
         String methodDesc = Type.getMethodDescriptor(interfaceMethod);
         MethodVisitor mv = cv.visitMethod(ACC_PUBLIC, methodName, methodDesc, null, null);
         GeneratorAdapter adapter = new GeneratorAdapter(mv, ACC_PUBLIC, methodName, methodDesc);
-        mv.visitCode();
+        adapter.visitCode();
 
         /* Load MethodHandle, if required */
         loadMH(adapter, proxyClass, useMH, mhIndex);
@@ -251,15 +257,16 @@ final class MethodGenerator {
     }
 
     /* Generates method, what writes field */
+    @Contract("null, null, null, null, null, null, _, _, _, _ -> fail")
     static void generateFieldWriteMethod(ClassVisitor cv, Method interfaceMethod,
-                                        Type proxyClass, Type targetClass, Type fieldType, String fieldName,
+                                         Type proxyClass, Type targetClass, Type fieldType, String fieldName,
                                          boolean isTargetPublic, boolean useInstance,
                                          boolean useMH, int mhIndex) {
         String methodName = interfaceMethod.getName();
         String methodDesc = Type.getMethodDescriptor(interfaceMethod);
         MethodVisitor mv = cv.visitMethod(ACC_PUBLIC, methodName, methodDesc, null, null);
         GeneratorAdapter adapter = new GeneratorAdapter(mv, ACC_PUBLIC, methodName, methodDesc);
-        mv.visitCode();
+        adapter.visitCode();
 
         /* Load MethodHandle, if required */
         loadMH(adapter, proxyClass, useMH, mhIndex);
@@ -299,12 +306,13 @@ final class MethodGenerator {
     }
 
     /* Generates method, what just throws RuntimeException */
+    @Contract("null, null, null -> fail")
     static void generateFailedMethod(ClassVisitor cv, Method interfaceMethod, String errorMessage) {
         String methodName = interfaceMethod.getName();
         String methodDescriptor = Type.getMethodDescriptor(interfaceMethod);
         MethodVisitor mv = cv.visitMethod(ACC_PUBLIC, methodName, methodDescriptor, null, null);
         GeneratorAdapter adapter = new GeneratorAdapter(mv, ACC_PUBLIC, methodName, methodDescriptor);
-        mv.visitCode();
+        adapter.visitCode();
 
         /* Throw exception */
         adapter.throwException(Type.getType(RuntimeException.class), errorMessage);
@@ -314,6 +322,7 @@ final class MethodGenerator {
     }
 
     /* Helps to box/unbox parameters */
+    @Contract("null, null, null, !null -> fail")
     private static void loadArguments(GeneratorAdapter ga, Type[] interfaceTypes, Type[] targetTypes, boolean isTargetPublic) {
         Ensure.ensureCondition(interfaceTypes.length == targetTypes.length,
                 "Interface and target parameter count don't match!");
@@ -345,6 +354,7 @@ final class MethodGenerator {
     }
 
     /* Loads MethodHandle from array */
+    @Contract("null, null, !null, null -> fail")
     private static void loadMH(GeneratorAdapter adapter, Type proxyClass, boolean useMH, int mhIndex) {
         if(!useMH) return;
 
@@ -360,6 +370,7 @@ final class MethodGenerator {
     }
 
     /* Loads class instance */
+    @Contract("null, null, null, !null, !null -> fail")
     private static void loadInstance(GeneratorAdapter adapter, Type proxyClass, Type targetClass,
                                      boolean useInstance, boolean isTargetPublic) {
         if(!useInstance) return;
@@ -370,7 +381,8 @@ final class MethodGenerator {
 
     /* Helps to convert Type[] and Type to descriptor String */
     @NotNull
-    private static String convertDesc(@NotNull Type[] targetParameters, @NotNull Type returnType, @Nullable Type instanceType) {
+    @Contract("null, null, _ -> fail")
+    private static String convertDesc(Type[] targetParameters, Type returnType, Type instanceType) {
         List<String> params = Stream.of(targetParameters).map(Type::getDescriptor).collect(Collectors.toList());
         if(instanceType != null) params.add(0, instanceType.getDescriptor());
         return newDescriptor()
@@ -380,6 +392,7 @@ final class MethodGenerator {
     }
 
     /* Handles return type boxing & casting */
+    @Contract("null, null, null -> fail")
     private static void handleReturn(GeneratorAdapter ga, Method interfaceMethod, Type targetReturnType) {
         Type returnType = Type.getReturnType(interfaceMethod);
 
@@ -395,6 +408,7 @@ final class MethodGenerator {
     }
 
     /* Checks if type is primitive */
+    @Contract("null -> fail")
     private static boolean isPrimitive(Type type) {
         switch (type.getSort()) {
             case Type.BYTE:

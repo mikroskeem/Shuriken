@@ -71,6 +71,8 @@ public final class ClassLoaderTools {
 
         /**
          * Constructs an {@link sun.misc.URLClassPath} wrapper for {@link URLClassLoader} instance
+         *
+         * @param urlClassLoader {@link URLClassLoader} instance
          */
         @SuppressWarnings("unchecked")
         public URLClassLoaderTools(URLClassLoader urlClassLoader) {

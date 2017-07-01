@@ -29,6 +29,8 @@ import static org.objectweb.asm.Opcodes.*;
 
 
 /**
+ * Package-private Method reflector factory, used to generate proxy classes
+ *
  * @author Mark Vainomaa
  */
 final class MethodReflectorFactory {
@@ -55,7 +57,10 @@ final class MethodReflectorFactory {
             "annotation, or change method return type: ";
 
     @SuppressWarnings("unchecked")
+    @Contract("null, null, null -> fail")
     <T> T generateReflector(ClassWrapper<?> target, Class<T> intf, Map<String, String> r) {
+        Ensure.notNull(target, "Target class must not be null!");
+        Ensure.notNull(intf, "Interface must not be null!");
         List<MethodHandle> methodHandles = new ArrayList<>();
         boolean isTargetPublic = Modifier.isPublic(target.getWrappedClass().getModifiers());
         boolean classMustUseInstance = false;
@@ -551,8 +556,7 @@ final class MethodReflectorFactory {
         }
 
         /* Amazing hack, wow */
-        String[] a = new String[1];
-        a[0] = source;
+        String[] a = new String[] { source };
 
         /* Replace placeholders */
         for(String placeholder: foundPlaceholders) {

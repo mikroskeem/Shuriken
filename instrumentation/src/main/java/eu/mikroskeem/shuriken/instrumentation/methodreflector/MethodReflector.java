@@ -14,13 +14,19 @@ import java.util.WeakHashMap;
 
 
 /**
+ * A Method Reflector.
+ *
+ * Makes all targets (fields, methods and constructors) available as methods defined in interface
+ *
  * @author Mark Vainomaa
  */
 public final class MethodReflector<T> {
+    /** Global debug state */
+    public static boolean DEBUG = false;
+
     private final static Map<Pair<ClassWrapper<?>, Class<?>>, MethodReflector<?>> methodReflectors = new WeakHashMap<>();
     private final static Map<String, String> replacements = new HashMap<>();
     private final static MethodReflectorFactory factory = new MethodReflectorFactory();
-    public static boolean DEBUG = false;
     private MethodReflector(ClassWrapper<?> target, Class<T> itf) {
         this.clazz = target;
         this.itf = itf;

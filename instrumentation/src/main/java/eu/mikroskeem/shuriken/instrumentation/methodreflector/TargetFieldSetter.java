@@ -14,7 +14,11 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface TargetFieldSetter {
-    /** Field name */
+    /**
+     * Target field name. Required for setter method to work
+     *
+     * @return Target field name
+     */
     String value();
 
     /**
@@ -22,6 +26,9 @@ public @interface TargetFieldSetter {
      *
      * Useful for non-public classes. Use {@link Object} in place of parameter types in
      * interface method if defined.
+     *
+     * @return Field type descriptor
+     * @see org.objectweb.asm.Type
      */
     String type() default "";
 }

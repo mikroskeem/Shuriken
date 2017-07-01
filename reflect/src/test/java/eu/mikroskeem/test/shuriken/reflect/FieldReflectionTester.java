@@ -75,6 +75,7 @@ public class FieldReflectionTester {
      */
 
     @Test
+    @SuppressWarnings("unchecked")
     public <C> void testClassPrimitiveArrayFieldReading() throws Exception {
         ClassWrapper<TestClassFour> cw = wrapClass(TestClassFour.class);
 
@@ -89,6 +90,7 @@ public class FieldReflectionTester {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     public <C> void testClassPrimitiveArrayFieldWriting() throws Exception {
         ClassWrapper<TestClassFour> cw = wrapClass(TestClassFour.class);
 

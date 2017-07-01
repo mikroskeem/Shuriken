@@ -31,11 +31,13 @@ public enum PrimitiveType {
      * Get boxed version of class
      *
      * @param primitiveClass Primitive class
+     * @param <T> Primitive class
+     * @param <V> Boxed version of given primitive class
      * @return Boxed class
      */
     @Contract("null -> fail")
     @SuppressWarnings("unchecked")
-    public static <T,V> Class<V> getBoxed(Class<T> primitiveClass) {
+    public static <T, V> Class<V> getBoxed(Class<T> primitiveClass) {
         if(primitiveClass == null) throw new IllegalStateException("Primitive class shouldn't be null!");
         for(PrimitiveType value : PrimitiveType.values()) {
             if(value.getPrimitiveClass() == primitiveClass)
@@ -48,11 +50,13 @@ public enum PrimitiveType {
      * Get primitive version of class
      *
      * @param boxedClass Boxed class
+     * @param <T> Boxed class
+     * @param <V> Primitive version of given boxed class
      * @return Primitive class
      */
     @Contract("null -> fail")
     @SuppressWarnings("unchecked")
-    public static <T,V> Class<V> getUnboxed(Class<T> boxedClass) {
+    public static <T, V> Class<V> getUnboxed(Class<T> boxedClass) {
         if(boxedClass == null) throw new IllegalStateException("Boxed class shouldn't be null!");
         for(PrimitiveType value : PrimitiveType.values()) {
             if(value.getBoxedClass() == boxedClass)
