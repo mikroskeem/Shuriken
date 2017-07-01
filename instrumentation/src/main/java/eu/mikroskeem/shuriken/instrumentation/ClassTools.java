@@ -41,6 +41,7 @@ public final class ClassTools {
      * @return Signature string
      */
     @NotNull
+    @Deprecated
     public static String getGenericSignature(Class<?> genericClass, Class<?>... types) {
         String genericName = unqualifyName(Ensure.notNull(genericClass, "Class shouldn't be null!").getName());
         StringBuilder sb = new StringBuilder();
