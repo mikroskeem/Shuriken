@@ -59,13 +59,26 @@ public final class ClassWrapper<T> {
 
         /* Build field cache */
         Field[] declaredFields = wrappedClass.getDeclaredFields();
+        Map<FieldInfo, Field> extraFields = new HashMap<>();
         for (int i = 0; i <= declaredFields.length-1; i++) {
             Field field = Reflect.Utils.setFieldAccessible(declaredFields[i]);
             if(field == null) continue;
+            if(field.getType().isPrimitive()) {
+                FieldInfo nonPrimitiveFieldInfo = new FieldInfo(
+                        field.getName(),
+                        PrimitiveType.ensureBoxed(field.getType())
+                );
+                extraFields.put(nonPrimitiveFieldInfo, field);
+            }
             FieldInfo fieldInfo = FieldInfo.of(field);
             FIELD_INDEX.put(fieldInfo, i);
             FIELD_CACHE.put(i, field);
         }
+        extraFields.forEach((i, f) -> {
+            int index = FIELD_INDEX.size();
+            FIELD_INDEX.put(i, index);
+            FIELD_CACHE.put(index, f);
+        });
     }
 
     private final Class<T> wrappedClass;
@@ -160,22 +173,14 @@ public final class ClassWrapper<T> {
         FieldInfo fieldInfo = new FieldInfo(fieldName, type);
 
         /* Get field */
-        Field field = null;
         Integer found = FIELD_INDEX.get(fieldInfo);
-        if(found != null) {
-            Field foundField = FIELD_CACHE.get(found);
-            if(foundField != null) {
-                field = foundField;
-            }
-        } else {
-            field = findDeclaredField(fieldName, type);
-        }
-        if(field == null) return Optional.empty();
+        Field[] field = new Field[] { found != null ? FIELD_CACHE.get(found) : null };
+        field[0] = field[0] != null ? field[0] : findDeclaredField(fieldName, type);
+        if(field[0] == null) return Optional.empty();
 
         /* Wrap field */
-        final Field _field = field;
         return Optional.of((FieldWrapper<V>)FIELDWRAPPER_CACHE.computeIfAbsent(found,
-                k -> MethodHandleFieldWrapper.of(this, _field, type)));
+                k -> MethodHandleFieldWrapper.of(this, field[0], type)));
     }
 
     /**
@@ -227,16 +232,9 @@ public final class ClassWrapper<T> {
         MethodInfo methodInfo = new MethodInfo(methodName, returnType, tArgs);
 
         /* Find method */
-        Method method = null;
         Integer found = METHOD_INDEX.get(methodInfo);
-        if(found != null) {
-            Method foundMethod = METHOD_CACHE.get(found);
-            if(foundMethod != null) {
-                method = foundMethod;
-            }
-        } else {
-            method = findDeclaredMethod(methodName, returnType, tArgs);
-        }
+        Method method = found != null ? METHOD_CACHE.get(found) : null;
+        method = method != null ? method : findDeclaredMethod(methodName, returnType, tArgs);
 
         /* Do method modifier checks */
         if(!Modifier.isStatic(method.getModifiers()) && getClassInstance() == null) {
