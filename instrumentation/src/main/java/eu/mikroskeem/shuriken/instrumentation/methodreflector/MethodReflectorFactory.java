@@ -136,6 +136,9 @@ final class MethodReflectorFactory {
                     }
 
                     /* Try to find field */
+                    if(MethodReflector.DEBUG)
+                        System.out.format("Trying to find field with name '%s', type '%s' from class '%s'%n",
+                                fieldName, fieldType, targetClass);
                     Field targetField = findDeclaredField(targetClass, fieldName, fieldType);
 
                     /* Ensure target field is present */
@@ -148,18 +151,24 @@ final class MethodReflectorFactory {
                     if(!Modifier.isStatic(targetField.getModifiers())) {
                         /* Proxy class must use target class instance */
                         if(!classMustUseInstance) classMustUseInstance = true;
+                        if(MethodReflector.DEBUG)
+                            System.out.format("Field '%s' is not static, proxy class must use target class instance%n", targetField);
                         useInstance = true;
                     }
 
                     if(!isTargetPublic) {
                         /* Must use MethodHandle */
                         if(!classMustUseMH) classMustUseMH = true;
+                        if(MethodReflector.DEBUG)
+                            System.out.format("Field '%s' declarer class is not public, proxy class must use method handle%n", targetField);
                         useMH = true;
                     }
 
                     if(!Modifier.isPublic(targetField.getModifiers())) {
                         /* Proxy class must use method handles */
                         if(!classMustUseMH) classMustUseMH = true;
+                        if(MethodReflector.DEBUG)
+                            System.out.format("Field '%s' is not public, proxy class must use method handle%n", targetField);
                         useMH = true;
                     }
 
@@ -167,6 +176,8 @@ final class MethodReflectorFactory {
                         /* Must use MethodHandle, again */
                         if(!classMustUseMH) classMustUseMH = true;
                         fieldType = OBJECT;
+                        if(MethodReflector.DEBUG)
+                            System.out.format("Field '%s' type is not public, proxy class must use method handle%n", targetField);
                         useMH = true;
                     }
 
@@ -179,6 +190,9 @@ final class MethodReflectorFactory {
                         int modifiers = targetField.getModifiers();
                         Reflect.wrapInstance(targetField).getField("modifiers", int.class)
                                 .ifPresent(fw -> fw.write(modifiers & ~Modifier.FINAL));
+
+                        if(MethodReflector.DEBUG)
+                            System.out.format("Field '%s' is final, proxy class must use method handle%n", targetField);
                     }
 
                     /* Generate proxy method */
@@ -239,6 +253,9 @@ final class MethodReflectorFactory {
                         CTOR_TO_USE_OBJECT_PLEASE_OVERRIDE + interfaceMethod);
 
                 /* Try to find target constructor */
+                if(MethodReflector.DEBUG)
+                    System.out.format("Trying to find constructor with parameters '%s' from class '%s'%n",
+                            Arrays.toString(targetParameters), targetClass);
                 Constructor<?> targetConstructor = findDeclaredConstructor(targetClass, targetParameters);
                 Ensure.notNull(targetConstructor, FAILED_TO_FIND_CTOR + interfaceMethod);
 
@@ -248,12 +265,20 @@ final class MethodReflectorFactory {
                 if(!Modifier.isPublic(targetConstructor.getModifiers())) {
                     /* Proxy class must use method handles */
                     if(!classMustUseMH) classMustUseMH = true;
+                    if(MethodReflector.DEBUG)
+                        System.out.format(
+                                "Constructor '%s' is not public, proxy class must use method handle%n", targetConstructor
+                        );
                     useMH = true;
                 }
 
                 if(!isTargetPublic) {
                     /* Must use MethodHandle */
                     if(!classMustUseMH) classMustUseMH = true;
+                    if(MethodReflector.DEBUG)
+                        System.out.format(
+                                "Constructor '%s' type is not public, proxy class must use method handle%n", targetConstructor
+                        );
                     useMH = true;
                 }
 
@@ -302,11 +327,20 @@ final class MethodReflectorFactory {
                     Type.getReturnType(interfaceMethod);
 
             /* Try to find target method */
+            if(MethodReflector.DEBUG)
+                System.out.format("Trying to find method with name '%s', with parameters '%s' " +
+                                "and return type '%s' from class '%s'%n",
+                        methodName, Arrays.toString(targetParameters), targetReturnType, targetClass);
             Method targetMethod = findDeclaredMethod(targetClass, methodName, targetParameters, targetReturnType);
 
             /* Ensure target method is present */
             if(targetMethod == null && interfaceHasDefault) {
                 /* Use interface's default method */
+                if(MethodReflector.DEBUG)
+                    System.out.format(
+                            "Target for '%s' was not found, but default is present, so using interface default%n",
+                            interfaceMethod
+                    );
                 continue;
             }
             Ensure.notNull(targetMethod, FAILED_TO_FIND_METHOD + interfaceMethod);
@@ -318,31 +352,43 @@ final class MethodReflectorFactory {
 
             if(targetMethod.getDeclaringClass().isInterface()) {
                 /* INVOKEINTERFACE it is */
+                if(MethodReflector.DEBUG)
+                    System.out.format(
+                            "Method '%s' overrides interface, so using INVOKEINTERFACE%n", targetMethod
+                    );
                 useInterface = true;
             }
 
             if(!Modifier.isStatic(targetMethod.getModifiers())) {
                 /* Proxy class must use target class instance */
                 if(!classMustUseInstance) classMustUseInstance = true;
+                if(MethodReflector.DEBUG)
+                    System.out.format("Method '%s' is not static, proxy class must use target class instance%n", targetMethod);
                 useInstance = true;
             }
 
             if(!isTargetPublic) {
                 /* Must use MethodHandle */
                 if(!classMustUseMH) classMustUseMH = true;
+                if(MethodReflector.DEBUG)
+                    System.out.format("Method '%s' declarer class is not public, proxy class must use method handle%n", targetMethod);
                 useMH = true;
             }
 
             if(!Modifier.isPublic(targetMethod.getReturnType().getModifiers())) {
-                        /* Must use MethodHandle, again */
+                /* Must use MethodHandle, again */
                 if(!classMustUseMH) classMustUseMH = true;
                 targetReturnType = OBJECT;
+                if(MethodReflector.DEBUG)
+                    System.out.format("Method '%s' return type is not public, proxy class must use method handle%n", targetMethod);
                 useMH = true;
             }
 
             if(!Modifier.isPublic(targetMethod.getModifiers())) {
                 /* Proxy class must use method handles */
                 if(!classMustUseMH) classMustUseMH = true;
+                if(MethodReflector.DEBUG)
+                    System.out.format("Method '%s' is not public, proxy class must use method handle%n", targetMethod);
                 useMH = true;
             }
 
