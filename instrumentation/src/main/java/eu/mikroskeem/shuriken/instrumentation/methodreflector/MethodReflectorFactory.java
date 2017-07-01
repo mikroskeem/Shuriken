@@ -313,7 +313,7 @@ final class MethodReflectorFactory {
 
             /* Gather required method parameter/return type info */
             String methodName = targetMethodInfo != null && !targetMethodInfo.value().isEmpty()?
-                    targetMethodInfo.value()
+                    r(targetMethodInfo.value(), r)
                     :
                     interfaceMethod.getName();
 
