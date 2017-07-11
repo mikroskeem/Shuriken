@@ -24,6 +24,13 @@ public class ClassWrapperTester {
     }
 
     @Test
+    public void testClassThrowsFinding() throws Exception {
+        Assertions.assertThrows(ClassNotFoundException.class, ()->{
+            Reflect.getClassThrows("foo.bar.baz.idontexist");
+        });
+    }
+
+    @Test
     public void testClassConstructing() throws Exception {
         Class<TestClassOne> testClass = TestClassOne.class;
         ClassWrapper<TestClassOne> cw = Reflect.wrapClass(testClass).construct();

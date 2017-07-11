@@ -132,7 +132,7 @@ public class Reflect {
     @NotNull
     @Contract("null, null -> fail")
     public static ClassWrapper<?> getClassThrows(String name, ClassLoader classLoader) {
-        return getClass(name).orElseGet(() -> {
+        return getClass(name, classLoader).orElseGet(() -> {
             Reflect.Utils.throwException(new ClassNotFoundException(name));
             return null;
         });
