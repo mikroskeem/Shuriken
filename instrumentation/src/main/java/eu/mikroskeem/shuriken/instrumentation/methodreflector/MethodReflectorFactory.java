@@ -147,6 +147,15 @@ final class MethodReflectorFactory {
                     Field targetField = findDeclaredField(targetClass, fieldName, fieldType);
 
                     /* Ensure target field is present */
+                    if(targetField == null && interfaceHasDefault) {
+                        /* Use interface's default method */
+                        if(MethodReflector.DEBUG)
+                            System.out.format(
+                                    "Target for '%s' was not found, but default is present, so using interface default%n",
+                                    interfaceMethod
+                            );
+                        continue;
+                    }
                     Ensure.notNull(targetField, FAILED_TO_FIND_FIELD + interfaceMethod);
 
                      /* Get needed target field info */
@@ -262,6 +271,16 @@ final class MethodReflectorFactory {
                     System.out.format("Trying to find constructor with parameters '%s' from class '%s'%n",
                             Arrays.toString(targetParameters), targetClass);
                 Constructor<?> targetConstructor = findDeclaredConstructor(targetClass, targetParameters);
+
+                if(targetConstructor == null && interfaceHasDefault) {
+                    /* Use interface's default method */
+                    if(MethodReflector.DEBUG)
+                        System.out.format(
+                                "Target for '%s' was not found, but default is present, so using interface default%n",
+                                interfaceMethod
+                        );
+                    continue;
+                }
                 Ensure.notNull(targetConstructor, FAILED_TO_FIND_CTOR + interfaceMethod);
 
                 /* Get needed target constructor info */
