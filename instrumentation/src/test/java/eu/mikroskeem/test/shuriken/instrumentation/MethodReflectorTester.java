@@ -5,6 +5,7 @@ import eu.mikroskeem.shuriken.reflect.ClassWrapper;
 import eu.mikroskeem.shuriken.reflect.Reflect;
 import eu.mikroskeem.shuriken.reflect.wrappers.TypeWrapper;
 import eu.mikroskeem.test.shuriken.instrumentation.testclasses.*;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,11 @@ public class MethodReflectorTester {
     @BeforeAll
     public static void setupMethodReflector() {
         MethodReflector.DEBUG = true;
+    }
+
+    @AfterAll
+    public static void cleanMethodReflector() {
+        MethodReflector.DEBUG = false;
     }
 
     @Test

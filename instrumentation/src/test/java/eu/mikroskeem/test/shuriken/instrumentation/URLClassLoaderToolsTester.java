@@ -2,7 +2,10 @@ package eu.mikroskeem.test.shuriken.instrumentation;
 
 import eu.mikroskeem.shuriken.common.ToURL;
 import eu.mikroskeem.shuriken.instrumentation.ClassLoaderTools;
+import eu.mikroskeem.shuriken.instrumentation.methodreflector.MethodReflector;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.io.FileOutputStream;
@@ -19,6 +22,16 @@ import java.nio.file.Path;
  * @author Mark Vainomaa
  */
 public class URLClassLoaderToolsTester {
+    @BeforeAll
+    public static void setupMethodReflector() {
+        MethodReflector.DEBUG = true;
+    }
+
+    @AfterAll
+    public static void cleanMethodReflector() {
+        MethodReflector.DEBUG = false;
+    }
+
     @Test
     public void testUCLTools() throws Exception {
         //URLClassLoader ucl = new URLClassLoader(new URL[0]);
