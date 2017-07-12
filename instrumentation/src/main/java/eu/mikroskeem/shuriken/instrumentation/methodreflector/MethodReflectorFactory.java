@@ -370,6 +370,7 @@ final class MethodReflectorFactory {
             Ensure.notNull(targetMethod, FAILED_TO_FIND_METHOD + interfaceMethod);
 
             /* Get needed target method info */
+            boolean isReturnTypePublic = true;
             boolean useInterface = false;
             boolean useInstance = false;
             boolean useMH = false;
@@ -402,6 +403,7 @@ final class MethodReflectorFactory {
             if(!Modifier.isPublic(targetMethod.getReturnType().getModifiers())) {
                 /* Must use MethodHandle, again */
                 if(!classMustUseMH) classMustUseMH = true;
+                isReturnTypePublic = false;
                 targetReturnType = OBJECT;
                 if(MethodReflector.DEBUG)
                     System.out.format("Method '%s' return type is not public, proxy class must use method handle%n", targetMethod);
@@ -434,7 +436,7 @@ final class MethodReflectorFactory {
                 generateMethodProxy(classWriter, interfaceMethod, proxyClassType, targetClassType,
                         useInterface? Type.getType(targetMethod.getDeclaringClass()) : null,
                         methodName, targetParameters, targetReturnType,
-                        isTargetPublic, useInstance,
+                        isTargetPublic, isReturnTypePublic, useInstance,
                         useInterface, useMH, mhIndex);
             } catch (IllegalStateException e) {
                 /* Something failed, whoops */

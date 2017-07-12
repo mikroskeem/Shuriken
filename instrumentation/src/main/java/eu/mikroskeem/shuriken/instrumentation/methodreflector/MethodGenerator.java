@@ -106,11 +106,11 @@ final class MethodGenerator {
     }
 
     /* Generates proxy method, what invokes target method */
-    @Contract("null, null, null, null, null, null, null, null, _, _, _, _, _ -> fail")
+    @Contract("null, null, null, null, null, null, null, null, _, _, _, _, _, _ -> fail")
     static void generateMethodProxy(ClassVisitor cv, Method interfaceMethod,
                                     Type proxyClass, Type targetClass, Type interfaceClass,
                                     String targetMethodName, Type[] targetParameters, Type targetReturnType,
-                                    boolean isTargetPublic, boolean useInstance,
+                                    boolean isTargetPublic, boolean isReturnTypePublic, boolean useInstance,
                                     boolean useInterface, boolean useMH, int mhIndex) {
         String methodName = interfaceMethod.getName();
         String methodDesc = Type.getMethodDescriptor(interfaceMethod);
@@ -129,11 +129,12 @@ final class MethodGenerator {
 
         if(useMH) {
             /* Build MethodHandle descriptor (invokeExact is polymorphic) */
-            String mhDescriptor = convertDesc(targetParameters, targetReturnType,
+            String mhDescriptor = convertDesc(targetParameters,
+                    (isReturnTypePublic ? targetReturnType : OBJECT),
                     useInstance ? (isTargetPublic ? targetClass : OBJECT) : null);
 
             /* Select right MethodHandle invoker */
-            String mhInvoker = isTargetPublic? "invokeExact" : "invoke";
+            String mhInvoker = isTargetPublic && isReturnTypePublic? "invokeExact" : "invoke";
 
             /* Invoke MethodHandle */
             mv.visitMethodInsn(INVOKEVIRTUAL, MH.getInternalName(), mhInvoker, mhDescriptor, false);
