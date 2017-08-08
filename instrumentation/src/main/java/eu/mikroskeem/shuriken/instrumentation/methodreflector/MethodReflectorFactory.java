@@ -518,7 +518,7 @@ final class MethodReflectorFactory {
             method = Arrays.stream(scanClass.getDeclaredMethods())
                     .filter(m ->
                         methodName.equals(m.getName()) &&
-                        Arrays.equals(m.getParameterTypes(), params) &&
+                        Arrays.equals(Type.getArgumentTypes(m), params) &&
                         Type.getType(m.getReturnType()).equals(returnType) &&
                         (m.isDefault() || Modifier.isStatic(m.getModifiers()))
                     )
