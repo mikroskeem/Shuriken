@@ -5,7 +5,9 @@ import eu.mikroskeem.shuriken.common.data.Pair;
 import eu.mikroskeem.shuriken.reflect.ClassWrapper;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
+import java.io.PrintWriter;
 import java.lang.reflect.Modifier;
 import java.util.Collections;
 import java.util.HashMap;
@@ -123,6 +125,15 @@ public final class MethodReflector<T> {
     @NotNull
     public T getReflector() {
         return interfaceImpl;
+    }
+
+    /**
+     * Set {@link org.objectweb.asm.util.TraceClassVisitor} output {@link PrintWriter} instance
+     *
+     * @param traceClassOutput {@link PrintWriter} instance
+     */
+    public void setTraceClassOutput(@Nullable PrintWriter traceClassOutput) {
+        factory.setTraceClassOutput(traceClassOutput);
     }
 
     @Override

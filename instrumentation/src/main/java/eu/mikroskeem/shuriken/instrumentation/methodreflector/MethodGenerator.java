@@ -16,8 +16,20 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static eu.mikroskeem.shuriken.common.Ensure.notNull;
 import static eu.mikroskeem.shuriken.instrumentation.Descriptor.newDescriptor;
-import static org.objectweb.asm.Opcodes.*;
+import static org.objectweb.asm.Opcodes.AALOAD;
+import static org.objectweb.asm.Opcodes.ACC_FINAL;
+import static org.objectweb.asm.Opcodes.ACC_PRIVATE;
+import static org.objectweb.asm.Opcodes.ACC_PUBLIC;
+import static org.objectweb.asm.Opcodes.BIPUSH;
+import static org.objectweb.asm.Opcodes.DUP;
+import static org.objectweb.asm.Opcodes.ICONST_0;
+import static org.objectweb.asm.Opcodes.INVOKEINTERFACE;
+import static org.objectweb.asm.Opcodes.INVOKESPECIAL;
+import static org.objectweb.asm.Opcodes.INVOKESTATIC;
+import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
+import static org.objectweb.asm.Opcodes.NEW;
 
 
 /**
@@ -36,28 +48,27 @@ final class MethodGenerator {
     final static Type OBJECT = Type.getType(Object.class);
 
     /* Generates class base */
-    @Contract("null, _, _, _, null, null -> fail")
-    static void generateClassBase(ClassVisitor cv,
-                                  boolean useInstance, boolean useMH, boolean isTargetPublic,
-                                  Type proxyClass, Type targetClass) {
-        FieldVisitor fv;
+    @Contract("null, _, null, null -> fail")
+    static void generateClassBase(final ClassVisitor cv, final int flags, final Type reflectorClass, Type targetClass) {
+        FieldVisitor fv = null;
         GeneratorAdapter adapter;
         MethodVisitor mv;
 
-        if(useMH || useInstance) {
+        if((flags & Magic.REFLECTOR_CLASS_USE_METHODHANDLE) != 0 || (flags & Magic.REFLECTOR_CLASS_USE_INSTANCE) != 0) {
             /* Use java.lang.Object instead */
-            if(!isTargetPublic) {
+            if((flags & Magic.TARGET_CLASS_VISIBILITY_PUBLIC) == 0)
                 targetClass = OBJECT;
-            }
 
             /* Figure out what descriptor to use */
-            String descriptor;
-            if(useInstance && useMH) {
+            String descriptor = null;
+            if((flags & Magic.REFLECTOR_CLASS_USE_METHODHANDLE) != 0 && (flags & Magic.REFLECTOR_CLASS_USE_INSTANCE) != 0) {
                 descriptor = newDescriptor().accepts(targetClass.getDescriptor(), MH_ARRAY.getDescriptor()).toString();
-            } else if(useInstance) {
+            } else if((flags & Magic.REFLECTOR_CLASS_USE_INSTANCE) != 0) {
                 descriptor = newDescriptor().accepts(targetClass.getDescriptor()).toString();
-            } else {
+            } else if((flags & Magic.REFLECTOR_CLASS_USE_METHODHANDLE) != 0) {
                 descriptor = newDescriptor().accepts(MH_ARRAY.getDescriptor()).toString();
+            } else {
+                descriptor.getClass(); // Explicit NPE
             }
 
             /* Generate constructor */
@@ -68,21 +79,21 @@ final class MethodGenerator {
             adapter.visitMethodInsn(INVOKESPECIAL, OBJECT.getInternalName(), "<init>", "()V", false);
 
             /* Start putting arguments to fields */
-            if(useInstance && useMH) {
+            if((flags & Magic.REFLECTOR_CLASS_USE_METHODHANDLE) != 0 && (flags & Magic.REFLECTOR_CLASS_USE_INSTANCE) != 0) {
                 adapter.loadThis();
                 adapter.loadArg(0);
-                adapter.putField(proxyClass, REFF, targetClass);
+                adapter.putField(reflectorClass, REFF, targetClass);
                 adapter.loadThis();
                 adapter.loadArg(1);
-                adapter.putField(proxyClass, MHF, MH_ARRAY);
-            } else if(useInstance) {
+                adapter.putField(reflectorClass, MHF, MH_ARRAY);
+            } else if((flags & Magic.REFLECTOR_CLASS_USE_INSTANCE) != 0) {
                 adapter.loadThis();
                 adapter.loadArg(0);
-                adapter.putField(proxyClass, REFF, targetClass);
-            } else /*if(useMH)*/ {
+                adapter.putField(reflectorClass, REFF, targetClass);
+            } else /*if((flags & Magic.REFLECTOR_CLASS_USE_METHODHANDLE) != 0)*/ {
                 adapter.loadThis();
                 adapter.loadArg(0);
-                adapter.putField(proxyClass, MHF, MH_ARRAY);
+                adapter.putField(reflectorClass, MHF, MH_ARRAY);
             }
 
             /* End constructor */
@@ -90,28 +101,25 @@ final class MethodGenerator {
             adapter.endMethod();
 
             /* Generate required fields as well */
-            if(useMH) {
-                fv = cv.visitField(ACC_PRIVATE | ACC_FINAL, "mh",
+            if((flags & Magic.REFLECTOR_CLASS_USE_METHODHANDLE) != 0) fv = cv.visitField(ACC_PRIVATE | ACC_FINAL, "mh",
                         MH_ARRAY.getDescriptor(), null, null);
-                fv.visitEnd();
-            }
-            if(useInstance) {
-                fv = cv.visitField(ACC_PRIVATE | ACC_FINAL, "ref",
+
+            if((flags & Magic.REFLECTOR_CLASS_USE_INSTANCE) != 0) fv = cv.visitField(ACC_PRIVATE | ACC_FINAL, "ref",
                         targetClass.getDescriptor(), null, null);
-                fv.visitEnd();
-            }
+
+            notNull(fv, "FieldVisitor shouldn't be null!");
+            fv.visitEnd();
         } else {
             ClassTools.generateSimpleSuperConstructor(cv, Object.class);
         }
     }
 
     /* Generates proxy method, what invokes target method */
-    @Contract("null, null, null, null, null, null, null, null, _, _, _, _, _, _ -> fail")
+    @Contract("null, null, null, null, null, null, null, null, _, _ -> fail")
     static void generateMethodProxy(ClassVisitor cv, Method interfaceMethod,
-                                    Type proxyClass, Type targetClass, Type interfaceClass,
+                                    Type reflectorClass, Type targetClass, Type interfaceClass,
                                     String targetMethodName, Type[] targetParameters, Type targetReturnType,
-                                    boolean isTargetPublic, boolean isReturnTypePublic, boolean useInstance,
-                                    boolean useInterface, boolean useMH, int mhIndex) {
+                                    int flags, int mhIndex) {
         String methodName = interfaceMethod.getName();
         String methodDesc = Type.getMethodDescriptor(interfaceMethod);
         MethodVisitor mv = cv.visitMethod(ACC_PUBLIC, methodName, methodDesc, null, null);
@@ -119,38 +127,38 @@ final class MethodGenerator {
         adapter.visitCode();
 
         /* Load MethodHandle, if required */
-        loadMH(adapter, proxyClass, useMH, mhIndex);
+        loadMH(adapter, reflectorClass, flags, mhIndex);
 
         /* Load instance, if required */
-        loadInstance(adapter, proxyClass, targetClass, useInstance, isTargetPublic);
+        loadInstance(adapter, reflectorClass, targetClass, flags);
 
         /* Load method parameters into stack */
-        loadArguments(adapter, Type.getArgumentTypes(interfaceMethod), targetParameters, isTargetPublic);
+        loadArguments(adapter, Type.getArgumentTypes(interfaceMethod), targetParameters, (flags & Magic.TARGET_CLASS_VISIBILITY_PUBLIC) != 0);
 
-        if(useMH) {
+        if((flags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) != 0) {
             /* Build MethodHandle descriptor (invokeExact is polymorphic) */
             String mhDescriptor = convertDesc(targetParameters,
-                    (isReturnTypePublic ? targetReturnType : OBJECT),
-                    useInstance ? (isTargetPublic ? targetClass : OBJECT) : null);
+                    ((flags & Magic.RETURN_TYPE_PUBLIC) != 0 ? targetReturnType : OBJECT),
+                    (flags & Magic.REFLECTOR_METHOD_USE_INSTANCE) != 0 ? ((flags & Magic.TARGET_CLASS_VISIBILITY_PUBLIC) != 0 ? targetClass : OBJECT) : null);
 
             /* Select right MethodHandle invoker */
-            String mhInvoker = isTargetPublic && isReturnTypePublic? "invokeExact" : "invoke";
+            String mhInvoker = (flags & Magic.TARGET_CLASS_VISIBILITY_PUBLIC) != 0 && (flags & Magic.RETURN_TYPE_PUBLIC) != 0 ? "invokeExact" : "invoke";
 
             /* Invoke MethodHandle */
             mv.visitMethodInsn(INVOKEVIRTUAL, MH.getInternalName(), mhInvoker, mhDescriptor, false);
         } else {
             /* Figure out what opcode to use */
-            int opCode = useInterface ?
-                    (useInstance ? INVOKEINTERFACE : INVOKESTATIC)
+            int opCode = (flags & Magic.REFLECTOR_METHOD_USE_INVOKEINTERFACE) != 0 ?
+                    ((flags & Magic.REFLECTOR_METHOD_USE_INSTANCE) != 0 ? INVOKEINTERFACE : INVOKESTATIC)
                     :
-                    (useInstance ? INVOKEVIRTUAL : INVOKESTATIC);
+                    ((flags & Magic.REFLECTOR_METHOD_USE_INSTANCE) != 0 ? INVOKEVIRTUAL : INVOKESTATIC);
 
             /* Build descriptor & select target class */
             String targetDescriptor = convertDesc(targetParameters, targetReturnType, null);
-            String targetName = useInterface ? interfaceClass.getInternalName() : targetClass.getInternalName();
+            String targetName = (flags & Magic.REFLECTOR_METHOD_USE_INVOKEINTERFACE) != 0 ? interfaceClass.getInternalName() : targetClass.getInternalName();
 
             /* Invoke method */
-            adapter.visitMethodInsn(opCode, targetName, targetMethodName, targetDescriptor, useInterface);
+            adapter.visitMethodInsn(opCode, targetName, targetMethodName, targetDescriptor, (flags & Magic.REFLECTOR_METHOD_USE_INVOKEINTERFACE) != 0);
         }
 
         /* Return */
@@ -162,11 +170,11 @@ final class MethodGenerator {
     }
 
     /* Generates method, what invokes target's constructor */
-    @Contract("null, null, null, null, null, _, _, _ -> fail")
+    @Contract("null, null, null, null, null, _, _ -> fail")
     static void generateConstructorProxy(ClassVisitor cv, Method interfaceMethod,
-                                         Type proxyClass, Type targetClass,
+                                         Type reflectorClass, Type targetClass,
                                          Type[] targetParameters,
-                                         boolean isTargetPublic, boolean useMH, int mhIndex) {
+                                         int flags, int mhIndex) {
         String methodName = interfaceMethod.getName();
         String methodDesc = Type.getMethodDescriptor(interfaceMethod);
         String targetClassName = targetClass.getInternalName();
@@ -175,23 +183,23 @@ final class MethodGenerator {
         adapter.visitCode();
 
         /* Load MethodHandle, if required */
-        loadMH(adapter, proxyClass, useMH, mhIndex);
+        loadMH(adapter, reflectorClass, flags, mhIndex);
 
-        if(!useMH) {
+        if((flags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) == 0) {
             adapter.visitTypeInsn(NEW, targetClassName);
             adapter.visitInsn(DUP);
         }
 
         /* Load method parameters into stack */
-        loadArguments(adapter, Type.getArgumentTypes(interfaceMethod), targetParameters, isTargetPublic);
+        loadArguments(adapter, Type.getArgumentTypes(interfaceMethod), targetParameters, (flags & Magic.RETURN_TYPE_PUBLIC) != 0);
 
-        if(useMH) {
+        if((flags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) != 0) {
             /* Build MethodHandle descriptor */
             String mhDescriptor = convertDesc(targetParameters,
-                    isTargetPublic ? targetClass : OBJECT, null);
+                    (flags & Magic.RETURN_TYPE_PUBLIC) != 0 ? targetClass : OBJECT, null);
 
             /* Select right MethodHandle invoker */
-            String mhInvoker = isTargetPublic? "invokeExact" : "invoke";
+            String mhInvoker = (flags & Magic.RETURN_TYPE_PUBLIC) != 0 ? "invokeExact" : "invoke";
 
             /* Invoke MethodHandle */
             mv.visitMethodInsn(INVOKEVIRTUAL, MH.getInternalName(), mhInvoker, mhDescriptor, false);
@@ -204,7 +212,7 @@ final class MethodGenerator {
         }
 
         /* Return */
-        handleReturn(adapter, interfaceMethod, isTargetPublic ? targetClass : OBJECT);
+        handleReturn(adapter, interfaceMethod, (flags & Magic.RETURN_TYPE_PUBLIC) != 0 ? targetClass : OBJECT);
         adapter.returnValue();
 
         /* End method */
@@ -212,11 +220,10 @@ final class MethodGenerator {
     }
 
     /* Generates method, what reads field */
-    @Contract("null, null, null, null, null, null, _, _, _, _ -> fail")
+    @Contract("null, null, null, null, null, null, _, _ -> fail")
     static void generateFieldReadMethod(ClassVisitor cv, Method interfaceMethod,
-                                        Type proxyClass, Type targetClass, Type fieldType, String fieldName,
-                                        boolean isTargetPublic, boolean useInstance,
-                                        boolean useMH, int mhIndex) {
+                                        Type reflectorClass, Type targetClass, Type fieldType, String fieldName,
+                                        int flags, int mhIndex) {
         String methodName = interfaceMethod.getName();
         String methodDesc = Type.getMethodDescriptor(interfaceMethod);
         MethodVisitor mv = cv.visitMethod(ACC_PUBLIC, methodName, methodDesc, null, null);
@@ -224,29 +231,28 @@ final class MethodGenerator {
         adapter.visitCode();
 
         /* Load MethodHandle, if required */
-        loadMH(adapter, proxyClass, useMH, mhIndex);
+        loadMH(adapter, reflectorClass, flags, mhIndex);
 
         /* Load instance, if required */
-        loadInstance(adapter, proxyClass, targetClass, useInstance, isTargetPublic);
+        loadInstance(adapter, reflectorClass, targetClass, flags);
 
-        if(useMH) {
+        if((flags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) != 0) {
             /* Build MethodHandle descriptor */
             String mhDescriptor = newDescriptor()
-                    .accepts(useInstance ? (isTargetPublic ? targetClass : OBJECT).getDescriptor() : "")
+                    .accepts((flags & Magic.REFLECTOR_METHOD_USE_INSTANCE) != 0 ? ((flags & Magic.TARGET_CLASS_VISIBILITY_PUBLIC) != 0 ? targetClass : OBJECT).getDescriptor() : "")
                     .returns(fieldType.getDescriptor())
                     .toString();
 
             /* Select right MethodHandle invoker */
-            String mhInvoker = isTargetPublic? "invokeExact" : "invoke";
+            String mhInvoker = (flags & Magic.TARGET_CLASS_VISIBILITY_PUBLIC) != 0 && (flags & Magic.RETURN_TYPE_PUBLIC) != 0 ? "invokeExact" : "invoke";
 
             /* Invoke MethodHandle */
             adapter.visitMethodInsn(INVOKEVIRTUAL, MH.getInternalName(), mhInvoker, mhDescriptor, false);
         } else {
-            if(useInstance) {
+            if((flags & Magic.REFLECTOR_METHOD_USE_INSTANCE) != 0)
                 adapter.getField(targetClass, fieldName, fieldType);
-            } else {
+            else
                 adapter.getStatic(targetClass, fieldName, fieldType);
-            }
         }
 
         /* Return */
@@ -258,11 +264,10 @@ final class MethodGenerator {
     }
 
     /* Generates method, what writes field */
-    @Contract("null, null, null, null, null, null, _, _, _, _ -> fail")
+    @Contract("null, null, null, null, null, null, _, _ -> fail")
     static void generateFieldWriteMethod(ClassVisitor cv, Method interfaceMethod,
-                                         Type proxyClass, Type targetClass, Type fieldType, String fieldName,
-                                         boolean isTargetPublic, boolean useInstance,
-                                         boolean useMH, int mhIndex) {
+                                         Type reflectorClass, Type targetClass, Type fieldType, String fieldName,
+                                         int flags, int mhIndex) {
         String methodName = interfaceMethod.getName();
         String methodDesc = Type.getMethodDescriptor(interfaceMethod);
         MethodVisitor mv = cv.visitMethod(ACC_PUBLIC, methodName, methodDesc, null, null);
@@ -270,33 +275,32 @@ final class MethodGenerator {
         adapter.visitCode();
 
         /* Load MethodHandle, if required */
-        loadMH(adapter, proxyClass, useMH, mhIndex);
+        loadMH(adapter, reflectorClass, flags, mhIndex);
 
         /* Load instance, if required */
-        loadInstance(adapter, proxyClass, targetClass, useInstance, isTargetPublic);
+        loadInstance(adapter, reflectorClass, targetClass, flags);
 
         /* Load method parameter into stack */
         adapter.loadArg(0);
 
-        if(useMH) {
+        if((flags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) != 0) {
             /* Build MethodHandle descriptor */
             String mhDescriptor = newDescriptor()
-                    .accepts((useInstance ?
-                            (isTargetPublic ? targetClass : OBJECT).getDescriptor(): "")
+                    .accepts(((flags & Magic.REFLECTOR_METHOD_USE_INSTANCE) != 0 ?
+                            ((flags & Magic.TARGET_CLASS_VISIBILITY_PUBLIC) != 0 ? targetClass : OBJECT).getDescriptor(): "")
                             + fieldType.getDescriptor())
                     .toString();
 
             /* Select right MethodHandle invoker */
-            String mhInvoker = isTargetPublic? "invokeExact" : "invoke";
+            String mhInvoker = (flags & Magic.TARGET_CLASS_VISIBILITY_PUBLIC) != 0 && (flags & Magic.RETURN_TYPE_PUBLIC) != 0 ? "invokeExact" : "invoke";
 
             /* Invoke MethodHandle */
             adapter.visitMethodInsn(INVOKEVIRTUAL, MH.getInternalName(), mhInvoker, mhDescriptor, false);
         } else {
-            if(useInstance) {
+            if((flags & Magic.REFLECTOR_METHOD_USE_INSTANCE) != 0)
                 adapter.putField(targetClass, fieldName, fieldType);
-            } else {
+            else
                 adapter.putStatic(targetClass, fieldName, fieldType);
-            }
         }
 
         /* Return */
@@ -355,29 +359,32 @@ final class MethodGenerator {
     }
 
     /* Loads MethodHandle from array */
-    @Contract("null, null, !null, null -> fail")
-    private static void loadMH(GeneratorAdapter adapter, Type proxyClass, boolean useMH, int mhIndex) {
-        if(!useMH) return;
+    @Contract("null, null, _, _ -> fail")
+    private static void loadMH(GeneratorAdapter adapter, Type reflectorClass, int flags, int mhIndex) {
+        if((flags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) == 0) return;
 
         /* Load MethodHandle field */
         adapter.loadThis();
-        adapter.getField(proxyClass, MHF, MH_ARRAY);
+        adapter.getField(notNull(reflectorClass, "Reflector class shouldn't be null!"), MHF, MH_ARRAY);
 
         /* Load index */
-        adapter.visitIntInsn(BIPUSH, mhIndex);
+        if(mhIndex >= 0 && mhIndex <= 5)
+            /* ICONST_x offset is 3, iow ICONST_0 = 3, ICONST_1 = 4 */
+            adapter.visitInsn(ICONST_0 + mhIndex);
+        else
+            adapter.visitIntInsn(BIPUSH, mhIndex);
 
         /* Load MethodHandle from array */
         adapter.visitInsn(AALOAD);
     }
 
     /* Loads class instance */
-    @Contract("null, null, null, !null, !null -> fail")
-    private static void loadInstance(GeneratorAdapter adapter, Type proxyClass, Type targetClass,
-                                     boolean useInstance, boolean isTargetPublic) {
-        if(!useInstance) return;
+    @Contract("null, null, null, _ -> fail")
+    private static void loadInstance(GeneratorAdapter adapter, Type reflectorClass, Type targetClass, int flags) {
+        if((flags & Magic.REFLECTOR_METHOD_USE_INSTANCE) == 0) return;
 
         adapter.loadThis();
-        adapter.getField(proxyClass, REFF, isTargetPublic ? targetClass : OBJECT);
+        adapter.getField(reflectorClass, REFF, (flags & Magic.TARGET_CLASS_VISIBILITY_PUBLIC) != 0 ? targetClass : OBJECT);
     }
 
     /* Helps to convert Type[] and Type to descriptor String */
