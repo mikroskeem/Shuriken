@@ -34,9 +34,11 @@ public class URLClassLoaderToolsTester {
 
     @Test
     public void testUCLTools() throws Exception {
-        //URLClassLoader ucl = new URLClassLoader(new URL[0]);
-        URLClassLoader ucl = (URLClassLoader) ClassLoader.getSystemClassLoader();
-        ClassLoaderTools.URLClassLoaderTools uclTools = new ClassLoaderTools.URLClassLoaderTools(ucl);
+        ClassLoader ucl = ClassLoader.getSystemClassLoader();
+        ClassLoaderTools.URLClassLoaderTools uclTools = ucl instanceof URLClassLoader ?
+                new ClassLoaderTools.URLClassLoaderTools((URLClassLoader) ucl)
+            :
+                new ClassLoaderTools.URLClassLoaderTools(ucl);
 
         Assertions.assertThrows(IllegalStateException.class, () ->
                 uclTools.addURL(new URL("https://mikroskeem.eu/stuff/fernflower.jar"))

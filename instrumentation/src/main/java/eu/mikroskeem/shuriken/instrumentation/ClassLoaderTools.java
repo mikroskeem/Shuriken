@@ -63,14 +63,15 @@ public final class ClassLoaderTools {
     }
 
     /**
-     * {@link sun.misc.URLClassPath} tools
+     * {@code sun.misc.URLClassPath} tools
      */
     public static class URLClassLoaderTools {
-        private final ClassWrapper<URLClassLoader> cl;
+        private final ClassWrapper<ClassLoader> cl;
         private final UCPAccessor ucpAccessor;
+        private final boolean isJava9;
 
         /**
-         * Constructs an {@link sun.misc.URLClassPath} wrapper for {@link URLClassLoader} instance
+         * Constructs an {@code sun.misc.URLClassPath} wrapper for {@link URLClassLoader} instance
          *
          * @param urlClassLoader {@link URLClassLoader} instance
          */
@@ -87,10 +88,32 @@ public final class ClassLoaderTools {
             /* Try to get loaders map */
             notNull(Optional.ofNullable((Map<String, Object>) ucpAccessor.getLmap())
                     .orElse(ucpAccessor.getIBMLmap()), "Could not find 'lmap' field!");
+
+            isJava9 = false;
         }
 
         /**
-         * Adds an url to {@link sun.misc.URLClassPath}
+         * Constructs an {@code jdk.internal.loader.URLClassPath} wrapper for {@code jdk.internal.loader.ClassLoaders.AppClassLoader} instance
+         *
+         * @param classLoader {@code jdk.internal.loader.ClassLoaders.AppClassLoader} instance,
+            *                 usually obtained by {@code ClassLoader.getSystemClassLoader()}
+         */
+        @SuppressWarnings("unchecked")
+        public URLClassLoaderTools(ClassLoader classLoader) {
+            cl = Reflect.wrapInstance(classLoader);
+            ClassWrapper<?> ucp = Reflect.getClassThrows("jdk.internal.loader.URLClassPath");
+            ucp.setClassInstance(ensurePresent(cl.getField("ucp", ucp.getWrappedClass()),
+                    "Could not get URLClassPath instance").read());
+
+            ucpAccessor = newInstance(ucp, UCPAccessor.class).getReflector();
+
+            // TODO: other JVMs?
+
+            isJava9 = true;
+        }
+
+        /**
+         * Adds an url to {@code sun.misc.URLClassPath}
          * @param url {@link URL} to add
          */
         @Contract("null -> fail")
@@ -99,7 +122,7 @@ public final class ClassLoaderTools {
             ensureCondition(url.getProtocol().equals("file"), "Only file:// protocol is supported!");
 
             ucpAccessor.addURL(url);
-            Object ucpLoader = ucpAccessor.getLoader(url);
+            Object ucpLoader = isJava9 ? ucpAccessor.getLoaderJ9(url) : ucpAccessor.getLoader(url);
             ucpAccessor.getLoaders().add(ucpLoader);
             Optional.ofNullable((Map<String, Object>) ucpAccessor.getLmap())
                     .orElse(ucpAccessor.getIBMLmap())
@@ -107,10 +130,10 @@ public final class ClassLoaderTools {
         }
 
         /**
-         * Clears lookup cache and forces it on again in {@link sun.misc.URLClassPath}
+         * Clears lookup cache and forces it on again in {@code sun.misc.URLClassPath}
          */
         public void resetCache() {
-            if(System.getProperties().getProperty("java.vendor").contains("Oracle")) { /* Oracle JVM-specific */
+            if(System.getProperties().getProperty("java.vendor").contains("Oracle") && !isJava9) { /* Oracle JVM-specific */
                 /* Re-enable lookup cache (the addURL will disable it) */
                 ucpAccessor.setLookupCacheEnabled(false);
 
@@ -124,7 +147,14 @@ public final class ClassLoaderTools {
             void addURL(URL url);
 
             @TargetMethod(desc = "(Ljava/net/URL;)Lsun/misc/URLClassPath$Loader;")
-            Object getLoader(URL url);
+            default Object getLoader(URL url) {
+                throw new RuntimeException("Could not find 'getLoader' method!");
+            }
+
+            @TargetMethod(value = "getLoader", desc = "(Ljava/net/URL;)Ljdk/internal/loader/URLClassPath$Loader;")
+            default Object getLoaderJ9(URL url) {
+                throw new RuntimeException("Could not find 'getLoader' method!");
+            }
 
             @TargetFieldGetter("lmap") default HashMap<String, Object> getLmap() { return null; }
             @TargetFieldGetter("lmap") default Map<String, Object> getIBMLmap() { return null; }
