@@ -34,35 +34,6 @@ public final class ClassTools {
     }
 
     /**
-     * Get class signature for generic class implementing/extending
-     *
-     * @param genericClass Generic class
-     * @param types Generic types
-     * @return Signature string
-     */
-    @NotNull
-    @Deprecated
-    public static String getGenericSignature(Class<?> genericClass, Class<?>... types) {
-        String genericName = unqualifyName(Ensure.notNull(genericClass, "Class shouldn't be null!").getName());
-        StringBuilder sb = new StringBuilder();
-        for(Class<?> type: types) sb.append("L").append(type.getSimpleName()).append(";");
-        return "L" + genericName + "<" + sb.toString() + ">;";
-    }
-
-    /**
-     * Generate simple <pre>super()</pre> calling constructor
-     *
-     * @param classWriter ClassWriter instance
-     * @param superClass Super class name (use {@link Object} for non-extending classes
-     *                   (or explictly extending Object, which is redundant anyway)
-     * @deprecated Using ClassVisitor is better idea
-     */
-    @Deprecated
-    public static void generateSimpleSuperConstructor(@NotNull ClassWriter classWriter, @NotNull String superClass) {
-        generateSimpleSuperConstructor((ClassVisitor)classWriter, superClass);
-    }
-
-    /**
      * Generate simple <pre>super()</pre> calling constructor
      *
      * @param classVisitor ClassVisitor instance
@@ -78,19 +49,6 @@ public final class ClassTools {
         mv.visitInsn(RETURN);
         mv.visitMaxs(1, 0);
         mv.visitEnd();
-    }
-
-    /**
-     * Generate simple <pre>super()</pre> calling constructor
-     *
-     * @param classWriter ClassWriter instance
-     * @param superClass Super class object (use {@link Object} for non-extending classes
-     *                   (or explictly extending Object, which is redundant anyway)
-     * @deprecated Using ClassVisitor is better idea
-     */
-    @Deprecated
-    public static void generateSimpleSuperConstructor(@NotNull ClassWriter classWriter, @NotNull Class<?> superClass) {
-        generateSimpleSuperConstructor((ClassVisitor)classWriter, Ensure.notNull(superClass, "Class shouldn't be null").getName());
     }
 
     /**
