@@ -48,8 +48,8 @@ final class MethodGenerator {
     final static Type OBJECT = Type.getType(Object.class);
 
     /* Generates class base */
-    @Contract("null, _, null, null -> fail")
-    static void generateClassBase(final ClassVisitor cv, final int flags, final Type reflectorClass, Type targetClass) {
+    @Contract("null, null, _, null, null -> fail")
+    static void generateClassBase(ClassVisitor cv, Type superClass, int flags, Type reflectorClass, Type targetClass) {
         FieldVisitor fv = null;
         GeneratorAdapter adapter;
         MethodVisitor mv;
@@ -76,9 +76,10 @@ final class MethodGenerator {
             adapter = new GeneratorAdapter(mv, ACC_PUBLIC, "<init>", descriptor);
             adapter.visitCode();
             adapter.loadThis();
-            adapter.visitMethodInsn(INVOKESPECIAL, OBJECT.getInternalName(), "<init>", "()V", false);
+            adapter.visitMethodInsn(INVOKESPECIAL, superClass.getInternalName(), "<init>", "()V", false);
 
             /* Start putting arguments to fields */
+            // TODO: skip method handle field if magic accessor is used
             if((flags & Magic.REFLECTOR_CLASS_USE_METHODHANDLE) != 0 && (flags & Magic.REFLECTOR_CLASS_USE_INSTANCE) != 0) {
                 adapter.loadThis();
                 adapter.loadArg(0);
@@ -135,7 +136,7 @@ final class MethodGenerator {
         /* Load method parameters into stack */
         loadArguments(adapter, Type.getArgumentTypes(interfaceMethod), targetParameters, (flags & Magic.TARGET_CLASS_VISIBILITY_PUBLIC) != 0);
 
-        if((flags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) != 0) {
+        if((flags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) != 0 && (flags & Magic.USES_MAGIC_ACCESSOR) == 0) {
             /* Build MethodHandle descriptor (invokeExact is polymorphic) */
             String mhDescriptor = convertDesc(targetParameters,
                     ((flags & Magic.RETURN_TYPE_PUBLIC) != 0 ? targetReturnType : OBJECT),
@@ -185,7 +186,8 @@ final class MethodGenerator {
         /* Load MethodHandle, if required */
         loadMH(adapter, reflectorClass, flags, mhIndex);
 
-        if((flags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) == 0) {
+        // if does not use method handle
+        if((flags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) == 0 || (flags & Magic.USES_MAGIC_ACCESSOR) != 0) {
             adapter.visitTypeInsn(NEW, targetClassName);
             adapter.visitInsn(DUP);
         }
@@ -193,7 +195,7 @@ final class MethodGenerator {
         /* Load method parameters into stack */
         loadArguments(adapter, Type.getArgumentTypes(interfaceMethod), targetParameters, (flags & Magic.RETURN_TYPE_PUBLIC) != 0);
 
-        if((flags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) != 0) {
+        if((flags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) != 0 && (flags & Magic.USES_MAGIC_ACCESSOR) == 0) {
             /* Build MethodHandle descriptor */
             String mhDescriptor = convertDesc(targetParameters,
                     (flags & Magic.RETURN_TYPE_PUBLIC) != 0 ? targetClass : OBJECT, null);
@@ -236,7 +238,7 @@ final class MethodGenerator {
         /* Load instance, if required */
         loadInstance(adapter, reflectorClass, targetClass, flags);
 
-        if((flags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) != 0) {
+        if((flags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) != 0 && (flags & Magic.USES_MAGIC_ACCESSOR) == 0) {
             /* Build MethodHandle descriptor */
             String mhDescriptor = newDescriptor()
                     .accepts((flags & Magic.REFLECTOR_METHOD_USE_INSTANCE) != 0 ? ((flags & Magic.TARGET_CLASS_VISIBILITY_PUBLIC) != 0 ? targetClass : OBJECT).getDescriptor() : "")
@@ -283,7 +285,7 @@ final class MethodGenerator {
         /* Load method parameter into stack */
         adapter.loadArg(0);
 
-        if((flags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) != 0) {
+        if((flags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) != 0 && (flags & Magic.USES_MAGIC_ACCESSOR) == 0) {
             /* Build MethodHandle descriptor */
             String mhDescriptor = newDescriptor()
                     .accepts(((flags & Magic.REFLECTOR_METHOD_USE_INSTANCE) != 0 ?
@@ -362,6 +364,7 @@ final class MethodGenerator {
     @Contract("null, null, _, _ -> fail")
     private static void loadMH(GeneratorAdapter adapter, Type reflectorClass, int flags, int mhIndex) {
         if((flags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) == 0) return;
+        if((flags & Magic.USES_MAGIC_ACCESSOR) != 0) return;
 
         /* Load MethodHandle field */
         adapter.loadThis();

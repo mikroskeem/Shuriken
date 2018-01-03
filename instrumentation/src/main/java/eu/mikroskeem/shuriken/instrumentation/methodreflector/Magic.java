@@ -29,4 +29,7 @@ final class Magic {
 
     /* CTOR */
     final static int CTOR_INVOKER = 1 << 11; // Indicates that reflector method is constructor invoker
+
+    /* MISC */
+    final static int USES_MAGIC_ACCESSOR = 1 << 12; // Indicates that given accessor extends
 }

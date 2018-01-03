@@ -1,6 +1,8 @@
 package eu.mikroskeem.shuriken.instrumentation.methodreflector;
 
 import eu.mikroskeem.shuriken.common.Ensure;
+import eu.mikroskeem.shuriken.instrumentation.ClassLoaderTools;
+import eu.mikroskeem.shuriken.instrumentation.ClassTools;
 import eu.mikroskeem.shuriken.reflect.ClassWrapper;
 import eu.mikroskeem.shuriken.reflect.Reflect;
 import eu.mikroskeem.shuriken.reflect.wrappers.TypeWrapper;
@@ -24,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -51,6 +54,8 @@ import static org.objectweb.asm.Opcodes.V1_8;
 @SuppressWarnings("unused")
 final class MethodReflectorFactory {
     private static final Map<Class<?>, AtomicInteger> COUNTER = new WeakHashMap<>(); /* <Interface Class, Used count> */
+    @Nullable private static final Class<?> magicAccessor;
+    @Nullable private static final Type magicAccessorType;
     private final static Logger log = Logger.getLogger(MethodReflectorFactory.class.getName());
     private final GeneratedClassLoader GCL = new GeneratedClassLoader(MethodReflectorFactory.class.getClassLoader());
     private final MethodHandles.Lookup mhLookup = MethodHandles.lookup();
@@ -91,9 +96,10 @@ final class MethodReflectorFactory {
         classWriter.visit(V1_8, ACC_PUBLIC + ACC_SUPER,
                 reflectorClassType.getInternalName(),
                 null,
-                OBJECT.getInternalName(),
+                (magicAccessor != null ? magicAccessorType : OBJECT).getInternalName(),
                 new String[]{interfaceClass.getInternalName()}
         );
+        if(magicAccessor != null) reflectorFlags |= Magic.USES_MAGIC_ACCESSOR;
         //</editor-fold>
 
         /* Iterate over interface class methods */
@@ -201,7 +207,7 @@ final class MethodReflectorFactory {
                             //</editor-fold>
 
                             //<editor-fold desc="Constructor method handle instance fetching">
-                            if((methodFlags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) != 0) {
+                            if((methodFlags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) != 0 && (reflectorFlags & Magic.USES_MAGIC_ACCESSOR) == 0) {
                                 try {
                                     if(!targetConstructor.isAccessible()) targetConstructor.setAccessible(true);
                                     MethodHandle methodHandle = mhLookup.unreflectConstructor(targetConstructor);
@@ -286,6 +292,9 @@ final class MethodReflectorFactory {
 
                                 methodFlags |= Magic.REFLECTOR_METHOD_USE_METHODHANDLE;
                                 reflectorFlags |= Magic.REFLECTOR_CLASS_USE_METHODHANDLE;
+
+                                // Remove magic accessor flag from method flags, as it won't work with final fields
+                                methodFlags &= ~Magic.USES_MAGIC_ACCESSOR;
                             }
                             //</editor-fold>
 
@@ -301,7 +310,7 @@ final class MethodReflectorFactory {
                             if(isAccessible(targetField.getType())) {
                                 log.log(FINEST, "Target field {0} type {1} is public", new Object[]{ targetField, targetField.getType() });
                                 methodFlags |= Magic.RETURN_TYPE_PUBLIC;
-                            } else {
+                            } else if((methodFlags & Magic.USES_MAGIC_ACCESSOR) == 0) {
                                 log.log(FINEST, "Target field {0} type {1} is not public, using MethodHandle", new Object[]{ targetField, targetField.getType() });
                                 if((methodFlags & Magic.FIELD_GETTER) != 0)
                                     targetReturnType = OBJECT;
@@ -313,7 +322,7 @@ final class MethodReflectorFactory {
                             //</editor-fold>
 
                             //<editor-fold desc="Field method handle instance fetching">
-                            if((methodFlags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) != 0) {
+                            if((methodFlags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) != 0 && (methodFlags & Magic.USES_MAGIC_ACCESSOR) == 0) {
                                 try {
                                     if(!targetField.isAccessible()) targetField.setAccessible(true);
                                     MethodHandle methodHandle;
@@ -411,7 +420,7 @@ final class MethodReflectorFactory {
                     //</editor-fold>
 
                     //<editor-fold desc="Method handle instance fetching">
-                    if((methodFlags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) != 0) {
+                    if((methodFlags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) != 0 && (methodFlags & Magic.USES_MAGIC_ACCESSOR) == 0) {
                         try {
                             if(!targetMethod.isAccessible()) targetMethod.setAccessible(true);
                             MethodHandle methodHandle = mhLookup.unreflect(targetMethod);
@@ -460,7 +469,8 @@ final class MethodReflectorFactory {
             ensureCondition(target.getClassInstance() != null, "Interface targets instance methods, but class instance is not present in ClassWrapper!");
 
         /* Generate constructor & fields */
-        generateClassBase(classWriter, reflectorFlags, reflectorClassType, targetClass);
+        Type superClass = (reflectorFlags & Magic.USES_MAGIC_ACCESSOR) != 0 ? magicAccessorType : OBJECT;
+        generateClassBase(classWriter, superClass, reflectorFlags, reflectorClassType, targetClass);
 
         /* Load class into memory */
         classWriter.visitEnd();
@@ -643,4 +653,40 @@ final class MethodReflectorFactory {
                 .orElse(null);
     }
     //</editor-fold>
+
+    static {
+        //<editor-fold desc="Generate magic accessor bridge">
+        // Figure out what package to use
+        boolean isJava9AndNewer = !System.getProperty("java.version").startsWith("1.");
+        String packageName = isJava9AndNewer ? "jdk/internal/reflect/" : "sun/reflect/";
+        String bridgeName = packageName + "Shuriken_MagicAccessorBridge";
+        String targetName = packageName + "MagicAccessorImpl";
+
+        // Look if bridge class is already generated
+        Optional<ClassWrapper<?>> bridge = isJava9AndNewer ? Optional.empty() : // TODO: Java 9 MagicAccessorImpl support
+                Reflect.getClass(bridgeName.replace('/', '.'));
+
+        if(!bridge.isPresent() && !isJava9AndNewer) { // TODO: Java 9 MagicAccessorImpl support
+            // If not, then generate
+            ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES);
+            cw.visit(V1_8, ACC_PUBLIC | ACC_SUPER, bridgeName, null, targetName, null);
+            ClassTools.generateSimpleSuperConstructor(cw, targetName);
+            cw.visitEnd();
+            Class<?> theMagicAccessorBridge;
+            try {
+                ClassLoader targetLoader = isJava9AndNewer ? MethodReflectorFactory.class.getClassLoader() : ClassLoader.getSystemClassLoader();
+                theMagicAccessorBridge = ClassLoaderTools.defineClass(targetLoader, bridgeName.replace('/', '.'), cw.toByteArray());
+            } catch (Exception e) {
+                e.printStackTrace();
+
+                // Magic accessor bridge class generation failed, bail out
+                theMagicAccessorBridge = null;
+            }
+            magicAccessor = theMagicAccessorBridge;
+        } else {
+            magicAccessor = isJava9AndNewer ? null : bridge.get().getWrappedClass(); // TODO: Java 9 MagicAccessorImpl support
+        }
+        magicAccessorType = magicAccessor != null ? Type.getType(magicAccessor) : null;
+        //</editor-fold>
+    }
 }
