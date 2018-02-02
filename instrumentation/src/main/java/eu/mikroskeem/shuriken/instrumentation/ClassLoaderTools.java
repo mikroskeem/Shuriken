@@ -16,7 +16,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import static eu.mikroskeem.shuriken.common.Ensure.*;
+import static eu.mikroskeem.shuriken.common.Ensure.ensureCondition;
+import static eu.mikroskeem.shuriken.common.Ensure.ensurePresent;
+import static eu.mikroskeem.shuriken.common.Ensure.notNull;
 import static eu.mikroskeem.shuriken.instrumentation.methodreflector.MethodReflector.newInstance;
 import static eu.mikroskeem.shuriken.reflect.wrappers.TypeWrapper.of;
 
@@ -63,7 +65,7 @@ public final class ClassLoaderTools {
     }
 
     /**
-     * {@code sun.misc.URLClassPath} tools
+     * {@code sun.misc.URLClassPath} or {@code jdk.internal.loader.URLClassPath} tools
      */
     public static class URLClassLoaderTools {
         private final ClassWrapper<ClassLoader> cl;
@@ -74,42 +76,35 @@ public final class ClassLoaderTools {
          * Constructs an {@code sun.misc.URLClassPath} wrapper for {@link URLClassLoader} instance
          *
          * @param urlClassLoader {@link URLClassLoader} instance
+         * @deprecated This class has 2 constructors with really similiar signature, which could confuse users.
+         *              Use {@link URLClassLoaderTools(ClassLoader)}
          */
+        @Deprecated
         @SuppressWarnings("unchecked")
-        public URLClassLoaderTools(URLClassLoader urlClassLoader) {
-            cl = Reflect.wrapInstance(urlClassLoader);
-            ClassWrapper<?> ucp = Reflect.getClassThrows("sun.misc.URLClassPath");
-            ucp.setClassInstance(ensurePresent(cl.getField("ucp", ucp.getWrappedClass()),
-                    "Could not get URLClassPath instance").read());
-
-            /* Set up URLClassPath accessor */
-            ucpAccessor = newInstance(ucp, UCPAccessor.class).getReflector();
-
-            /* Try to get loaders map */
-            notNull(Optional.ofNullable((Map<String, Object>) ucpAccessor.getLmap())
-                    .orElse(ucpAccessor.getIBMLmap()), "Could not find 'lmap' field!");
-
-            isJava9 = false;
-        }
+        public URLClassLoaderTools(URLClassLoader urlClassLoader) { this((ClassLoader)urlClassLoader); }
 
         /**
-         * Constructs an {@code jdk.internal.loader.URLClassPath} wrapper for {@code jdk.internal.loader.ClassLoaders.AppClassLoader} instance
+         * Constructs an URLClassPath wrapper for given ClassLoader instance
          *
          * @param classLoader {@code jdk.internal.loader.ClassLoaders.AppClassLoader} instance,
-            *                 usually obtained by {@code ClassLoader.getSystemClassLoader()}
+         *                 usually obtained by {@code ClassLoader.getSystemClassLoader()}
          */
         @SuppressWarnings("unchecked")
         public URLClassLoaderTools(ClassLoader classLoader) {
-            cl = Reflect.wrapInstance(classLoader);
-            ClassWrapper<?> ucp = Reflect.getClassThrows("jdk.internal.loader.URLClassPath");
+            this.cl = Reflect.wrapInstance(classLoader);
+            this.isJava9 = !System.getProperty("java.version").startsWith("1.");
+            ClassWrapper<?> ucp = Reflect.getClassThrows(isJava9 ? "jdk.internal.loader.URLClassPath" : "sun.misc.URLClassPath");
             ucp.setClassInstance(ensurePresent(cl.getField("ucp", ucp.getWrappedClass()),
                     "Could not get URLClassPath instance").read());
 
-            ucpAccessor = newInstance(ucp, UCPAccessor.class).getReflector();
+            // Set up URLClassPath accessor
+            this.ucpAccessor = newInstance(ucp, UCPAccessor.class).getReflector();
 
-            // TODO: other JVMs?
-
-            isJava9 = true;
+            if(!isJava9) {
+                // Try to get loaders map
+                notNull(Optional.ofNullable((Map<String, Object>) this.ucpAccessor.getLmap())
+                        .orElse(this.ucpAccessor.getIBMLmap()), "Could not find 'lmap' field!");
+            }
         }
 
         /**
