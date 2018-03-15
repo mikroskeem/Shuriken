@@ -7,7 +7,7 @@ The Java utilities collection.
 See wiki for code samples
 
 ## License
-GNU GPL version 2.0
+MIT
 
 ## Shuriken components
 
