@@ -130,10 +130,14 @@ public final class BytecodeManipulation {
         if(fieldInsn.getOpcode() != Opcodes.GETSTATIC)
             throw new IllegalStateException("Only static field getter rerouting is supported for now!");
 
-        Type[] methodParams = Type.getArgumentTypes(desc);
+        if(fieldInsn.getOpcode() != Opcodes.GETSTATIC || fieldInsn.getOpcode() != Opcodes.GETFIELD)
+            throw new IllegalStateException("Instruction opcode must be GET or GETSTATIC!");
 
-        if(methodParams.length > 0)
-            throw new IllegalStateException("Target method must not take any arguments!");
+        Type[] methodParams = Type.getArgumentTypes(desc);
+        Type methodReturn = Type.getReturnType(desc);
+
+        if(methodParams.length > 0 || methodReturn.equals(Type.VOID_TYPE))
+            throw new IllegalStateException("Target method must not take any arguments and not return void!");
 
         // TODO: Check target return type compatibility
         // TODO: Check if target method is accessible
@@ -149,6 +153,44 @@ public final class BytecodeManipulation {
         String desc = Type.getMethodDescriptor(target);
         boolean invokeInterface = !Modifier.isStatic(modifiers) && Modifier.isPublic(modifiers) && Modifier.isInterface(modifiers);
         rerouteFieldGetter(instructions, fieldInsn, owner, target.getName(), desc, invokeInterface);
+    }
+
+    public static void rerouteFieldSetter(@NotNull InsnList instructions,
+                                          @NotNull FieldInsnNode fieldInsn,
+                                          @NotNull String owner,
+                                          @NotNull String name,
+                                          @NotNull String desc,
+                                          boolean invokeInterface) {
+        if(!instructions.contains(fieldInsn))
+            throw new IllegalStateException("Given instructions list does not contain provided instruction!");
+
+        // TODO: :(
+        if(fieldInsn.getOpcode() != Opcodes.PUTSTATIC)
+            throw new IllegalStateException("Only static field setter rerouting is supported for now!");
+
+        if(fieldInsn.getOpcode() != Opcodes.PUTSTATIC || fieldInsn.getOpcode() != Opcodes.PUTFIELD)
+            throw new IllegalStateException("Instruction opcode must be PUT or PUTSTATIC!");
+
+        Type[] methodParams = Type.getArgumentTypes(desc);
+        Type methodReturn = Type.getReturnType(desc);
+
+        if(methodParams.length != 1 || !methodReturn.equals(Type.VOID_TYPE))
+            throw new IllegalStateException("Target method must take exactly one argument and return void!");
+
+        // TODO: Check target parameter type compatibility
+        // TODO: Check if target method is accessible
+        MethodInsnNode newInsn = new MethodInsnNode(Opcodes.INVOKESTATIC, owner, name, desc, invokeInterface);
+        instructions.set(fieldInsn, newInsn);
+    }
+
+    public static void rerouteFieldSetter(@NotNull InsnList instructions,
+                                          @NotNull FieldInsnNode fieldInsn,
+                                          @NotNull Method target) {
+        int modifiers = target.getModifiers();
+        String owner = target.getDeclaringClass().getName().replace('.', '/');
+        String desc = Type.getMethodDescriptor(target);
+        boolean invokeInterface = !Modifier.isStatic(modifiers) && Modifier.isPublic(modifiers) && Modifier.isInterface(modifiers);
+        rerouteFieldSetter(instructions, fieldInsn, owner, target.getName(), desc, invokeInterface);
     }
 
     public enum MethodOpcode {
