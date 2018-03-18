@@ -276,7 +276,7 @@ public final class BytecodeManipulation {
         if(fieldInsn.getOpcode() != Opcodes.GETSTATIC)
             throw new IllegalStateException("Only static field getter rerouting is supported for now!");
 
-        if(fieldInsn.getOpcode() != Opcodes.GETSTATIC || fieldInsn.getOpcode() != Opcodes.GETFIELD)
+        if(fieldInsn.getOpcode() != Opcodes.GETSTATIC && fieldInsn.getOpcode() != Opcodes.GETFIELD)
             throw new IllegalStateException("Instruction opcode must be GET or GETSTATIC!");
 
         Type[] methodParams = Type.getArgumentTypes(desc);
@@ -332,7 +332,7 @@ public final class BytecodeManipulation {
         if(fieldInsn.getOpcode() != Opcodes.PUTSTATIC)
             throw new IllegalStateException("Only static field setter rerouting is supported for now!");
 
-        if(fieldInsn.getOpcode() != Opcodes.PUTSTATIC || fieldInsn.getOpcode() != Opcodes.PUTFIELD)
+        if(fieldInsn.getOpcode() != Opcodes.PUTSTATIC && fieldInsn.getOpcode() != Opcodes.PUTFIELD)
             throw new IllegalStateException("Instruction opcode must be PUT or PUTSTATIC!");
 
         Type[] methodParams = Type.getArgumentTypes(desc);
