@@ -2,7 +2,7 @@ package eu.mikroskeem.test.shuriken.instrumentation.testagent;
 
 import eu.mikroskeem.shuriken.common.Ensure;
 import eu.mikroskeem.shuriken.instrumentation.Descriptor;
-import jdk.internal.org.objectweb.asm.Type;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
