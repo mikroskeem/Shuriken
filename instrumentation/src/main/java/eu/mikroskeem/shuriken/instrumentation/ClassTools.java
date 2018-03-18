@@ -61,4 +61,26 @@ public final class ClassTools {
     public static void generateSimpleSuperConstructor(@NotNull ClassVisitor classVisitor, @NotNull Class<?> superClass) {
         generateSimpleSuperConstructor(classVisitor, Ensure.notNull(superClass, "Class shouldn't be null").getName());
     }
+
+    /**
+     * Formats class resource path from class name
+     *
+     * @param className Class name
+     * @return Resource path
+     */
+    @NotNull
+    public static String getClassResourcePath(@NotNull String className) {
+        return className.replace('.', '/').concat(".class");
+    }
+
+    /**
+     * Formats class resource path from class object
+     *
+     * @param clazz Class
+     * @return Resource path
+     */
+    @NotNull
+    public static String getClassResourcePath(@NotNull Class<?> clazz) {
+        return getClassResourcePath(clazz.getName());
+    }
 }

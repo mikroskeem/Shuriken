@@ -49,7 +49,17 @@ public final class Descriptor {
      * @return this {@link Descriptor} instance
      */
     public Descriptor accepts(Class<?>... arguments) {
-        return accepts(Stream.of(arguments).map(Type::getDescriptor).collect(Collectors.toList()).toArray(new String[0]));
+        return accepts(Stream.of(arguments).map(Type::getDescriptor).toArray(String[]::new));
+    }
+
+    /**
+     * Build method returns part (default is primitive {@link Void})
+     *
+     * @param arguments Types what method accepts
+     * @return this {@link Descriptor} instance
+     */
+    public Descriptor accepts(Type... arguments) {
+        return accepts(Stream.of(arguments).map(Type::getDescriptor).toArray(String[]::new));
     }
 
     /**
@@ -72,7 +82,26 @@ public final class Descriptor {
      * @return this {@link Descriptor} instance
      */
     public Descriptor returns(Class<?>... arguments) {
-        return returns(Stream.of(arguments).map(Type::getDescriptor).collect(Collectors.toList()).toArray(new String[0]));
+        return returns(Stream.of(arguments).map(Type::getDescriptor).toArray(String[]::new));
+    }
+
+    /**
+     * Build method returns part (default is primitive {@link Void})
+     *
+     * @param arguments Types what method accepts
+     * @return this {@link Descriptor} instance
+     */
+    public Descriptor returns(Type... arguments) {
+        return returns(Stream.of(arguments).map(Type::getDescriptor).toArray(String[]::new));
+    }
+
+    /**
+     * Builds descriptor
+     *
+     * @return Descriptor string
+     */
+    public String build() {
+        return String.format(finalString, accepts, returns);
     }
 
     /**
@@ -82,6 +111,6 @@ public final class Descriptor {
      */
     @Override
     public String toString() {
-        return String.format(finalString, accepts, returns);
+        return build();
     }
 }

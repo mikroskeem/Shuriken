@@ -38,6 +38,11 @@ public final class ClassManipulation {
     }
 
     @Nullable
+    public static MethodNode findMethodWithAccessAtleast(@NotNull List<MethodNode> methodNodes, int access, @NotNull String name, @NotNull String desc) {
+        return findMethod(methodNodes, m -> (m.access & access) != 0 && name.equals(m.name) && desc.equals(m.desc));
+    }
+
+    @Nullable
     public static FieldNode findField(@NotNull List<FieldNode> fieldNodes, @NotNull Predicate<FieldNode> predicate) {
         return fieldNodes.stream().filter(predicate).findFirst().orElse(null);
     }
@@ -45,5 +50,10 @@ public final class ClassManipulation {
     @Nullable
     public static FieldNode findField(@NotNull List<FieldNode> fieldNodes, int access, @NotNull String name, @NotNull String desc) {
         return findField(fieldNodes, f -> access == f.access && name.equals(f.name) && desc.equals(f.desc));
+    }
+
+    @Nullable
+    public static FieldNode findFieldWithAccessAtleast(@NotNull List<FieldNode> fieldNodes, int access, @NotNull String name, @NotNull String desc) {
+        return findField(fieldNodes, f -> (f.access & access) != 0 && name.equals(f.name) && desc.equals(f.desc));
     }
 }
