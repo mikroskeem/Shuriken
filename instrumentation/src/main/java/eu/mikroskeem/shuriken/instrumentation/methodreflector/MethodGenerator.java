@@ -2,6 +2,7 @@ package eu.mikroskeem.shuriken.instrumentation.methodreflector;
 
 import eu.mikroskeem.shuriken.common.Ensure;
 import eu.mikroskeem.shuriken.instrumentation.ClassTools;
+import eu.mikroskeem.shuriken.instrumentation.Descriptor;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.objectweb.asm.ClassVisitor;
@@ -17,7 +18,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static eu.mikroskeem.shuriken.common.Ensure.notNull;
-import static eu.mikroskeem.shuriken.instrumentation.Descriptor.newDescriptor;
 import static org.objectweb.asm.Opcodes.AALOAD;
 import static org.objectweb.asm.Opcodes.ACC_FINAL;
 import static org.objectweb.asm.Opcodes.ACC_PRIVATE;
@@ -62,11 +62,11 @@ final class MethodGenerator {
             /* Figure out what descriptor to use */
             String descriptor = null;
             if((flags & Magic.REFLECTOR_CLASS_USE_METHODHANDLE) != 0 && (flags & Magic.REFLECTOR_CLASS_USE_INSTANCE) != 0) {
-                descriptor = newDescriptor().accepts(targetClass.getDescriptor(), MH_ARRAY.getDescriptor()).toString();
+                descriptor = new Descriptor().accepts(targetClass.getDescriptor(), MH_ARRAY.getDescriptor()).toString();
             } else if((flags & Magic.REFLECTOR_CLASS_USE_INSTANCE) != 0) {
-                descriptor = newDescriptor().accepts(targetClass.getDescriptor()).toString();
+                descriptor = new Descriptor().accepts(targetClass.getDescriptor()).toString();
             } else if((flags & Magic.REFLECTOR_CLASS_USE_METHODHANDLE) != 0) {
-                descriptor = newDescriptor().accepts(MH_ARRAY.getDescriptor()).toString();
+                descriptor = new Descriptor().accepts(MH_ARRAY.getDescriptor()).toString();
             } else {
                 descriptor.getClass(); // Explicit NPE
             }
@@ -240,7 +240,7 @@ final class MethodGenerator {
 
         if((flags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) != 0 && (flags & Magic.USES_MAGIC_ACCESSOR) == 0) {
             /* Build MethodHandle descriptor */
-            String mhDescriptor = newDescriptor()
+            String mhDescriptor = new Descriptor()
                     .accepts((flags & Magic.REFLECTOR_METHOD_USE_INSTANCE) != 0 ? ((flags & Magic.TARGET_CLASS_VISIBILITY_PUBLIC) != 0 ? targetClass : OBJECT).getDescriptor() : "")
                     .returns(fieldType.getDescriptor())
                     .toString();
@@ -287,7 +287,7 @@ final class MethodGenerator {
 
         if((flags & Magic.REFLECTOR_METHOD_USE_METHODHANDLE) != 0 && (flags & Magic.USES_MAGIC_ACCESSOR) == 0) {
             /* Build MethodHandle descriptor */
-            String mhDescriptor = newDescriptor()
+            String mhDescriptor = new Descriptor()
                     .accepts(((flags & Magic.REFLECTOR_METHOD_USE_INSTANCE) != 0 ?
                             ((flags & Magic.TARGET_CLASS_VISIBILITY_PUBLIC) != 0 ? targetClass : OBJECT).getDescriptor(): "")
                             + fieldType.getDescriptor())
@@ -396,7 +396,7 @@ final class MethodGenerator {
     private static String convertDesc(Type[] targetParameters, Type returnType, Type instanceType) {
         List<String> params = Stream.of(targetParameters).map(Type::getDescriptor).collect(Collectors.toList());
         if(instanceType != null) params.add(0, instanceType.getDescriptor());
-        return newDescriptor()
+        return new Descriptor()
                 .accepts(params.toArray(new String[params.size()]))
                 .returns(returnType.getDescriptor())
                 .toString();

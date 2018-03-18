@@ -1,6 +1,7 @@
 package eu.mikroskeem.shuriken.instrumentation;
 
 import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 import org.objectweb.asm.Type;
 
 import java.util.stream.Collectors;
@@ -14,7 +15,6 @@ import java.util.stream.Stream;
  * @version 0.0.1
  */
 public final class Descriptor {
-    private Descriptor() {}
     private String accepts = "";
     private String returns = "V";
     private final String finalString = "(%s)%s";
@@ -23,7 +23,9 @@ public final class Descriptor {
      * Get new descriptor builder instance
      *
      * @return {@link Descriptor} instance
+     * @deprecated Use constructor instead
      */
+    @Deprecated
     @Contract(" -> !null")
     public static Descriptor newDescriptor() {
         return new Descriptor();
@@ -35,7 +37,8 @@ public final class Descriptor {
      * @param arguments Types what method accepts
      * @return this {@link Descriptor} instance
      */
-    public Descriptor accepts(String... arguments) {
+    @NotNull
+    public Descriptor accepts(@NotNull String... arguments) {
         StringBuilder builder = new StringBuilder();
         for (String argument : arguments) builder.append(argument);
         this.accepts = builder.toString();
@@ -48,7 +51,8 @@ public final class Descriptor {
      * @param arguments Types what method accepts
      * @return this {@link Descriptor} instance
      */
-    public Descriptor accepts(Class<?>... arguments) {
+    @NotNull
+    public Descriptor accepts(@NotNull Class<?>... arguments) {
         return accepts(Stream.of(arguments).map(Type::getDescriptor).toArray(String[]::new));
     }
 
@@ -58,7 +62,8 @@ public final class Descriptor {
      * @param arguments Types what method accepts
      * @return this {@link Descriptor} instance
      */
-    public Descriptor accepts(Type... arguments) {
+    @NotNull
+    public Descriptor accepts(@NotNull Type... arguments) {
         return accepts(Stream.of(arguments).map(Type::getDescriptor).toArray(String[]::new));
     }
 
@@ -68,7 +73,8 @@ public final class Descriptor {
      * @param arguments Types what method accepts
      * @return this {@link Descriptor} instance
      */
-    public Descriptor returns(String... arguments) {
+    @NotNull
+    public Descriptor returns(@NotNull String... arguments) {
         StringBuilder builder = new StringBuilder();
         for (String argument : arguments) builder.append(argument);
         this.returns = builder.toString();
@@ -81,7 +87,8 @@ public final class Descriptor {
      * @param arguments Types what method accepts
      * @return this {@link Descriptor} instance
      */
-    public Descriptor returns(Class<?>... arguments) {
+    @NotNull
+    public Descriptor returns(@NotNull Class<?>... arguments) {
         return returns(Stream.of(arguments).map(Type::getDescriptor).toArray(String[]::new));
     }
 
@@ -91,7 +98,8 @@ public final class Descriptor {
      * @param arguments Types what method accepts
      * @return this {@link Descriptor} instance
      */
-    public Descriptor returns(Type... arguments) {
+    @NotNull
+    public Descriptor returns(@NotNull Type... arguments) {
         return returns(Stream.of(arguments).map(Type::getDescriptor).toArray(String[]::new));
     }
 
@@ -100,6 +108,7 @@ public final class Descriptor {
      *
      * @return Descriptor string
      */
+    @NotNull
     public String build() {
         return String.format(finalString, accepts, returns);
     }

@@ -19,7 +19,7 @@ public class TestAgent2 implements ClassFileTransformer {
     private final static String TARGET_CL = "eu/mikroskeem/test/shuriken/instrumentation/testclasses/TestTransformable2";
     private final static int TARGET_A = Opcodes.ACC_PUBLIC + Opcodes.ACC_SUPER;
     private final static String TARGET_M = "a";
-    private final static String TARGET_S = Descriptor.newDescriptor().returns(String.class).build();
+    private final static String TARGET_S = new Descriptor().returns(String.class).build();
 
     public static synchronized void agentmain(String args, Instrumentation instrumentation) throws Exception {
         new TestAgent2(instrumentation);

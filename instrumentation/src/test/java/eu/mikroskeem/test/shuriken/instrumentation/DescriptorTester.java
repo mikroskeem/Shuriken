@@ -1,20 +1,19 @@
 package eu.mikroskeem.test.shuriken.instrumentation;
 
+import eu.mikroskeem.shuriken.instrumentation.Descriptor;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import static eu.mikroskeem.shuriken.instrumentation.Descriptor.newDescriptor;
 
 public class DescriptorTester {
     @Test
     public void testDescriptorGenerator(){
-        String desc = newDescriptor()
+        String desc = new Descriptor()
                 .returns(void.class)
                 .toString();
-        String desc2 = newDescriptor()
+        String desc2 = new Descriptor()
                 .returns(Void.class)
                 .toString();
-        String desc3 = newDescriptor()
+        String desc3 = new Descriptor()
                 .accepts(int.class, int.class)
                 .returns(String.class)
                 .toString();

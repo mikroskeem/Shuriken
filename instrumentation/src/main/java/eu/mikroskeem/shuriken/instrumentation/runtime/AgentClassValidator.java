@@ -20,7 +20,7 @@ final class AgentClassValidator {
     private final static Type STRING = Type.getType(String.class);
     private final static Type INSTRUMENTATION = Type.getType(Instrumentation.class);
 
-    private final static String SIGNATURE = Descriptor.newDescriptor().accepts(STRING, INSTRUMENTATION).build();
+    private final static String SIGNATURE = new Descriptor().accepts(STRING, INSTRUMENTATION).build();
 
     static void validateMainClass(@NotNull AgentJarOutputStream outputStream) {
         ClassNode classNode = readClass(outputStream.currentEntryData.toByteArray());
