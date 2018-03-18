@@ -6,8 +6,10 @@ import eu.mikroskeem.shuriken.instrumentation.runtime.AgentJarOutputStream;
 import eu.mikroskeem.test.shuriken.instrumentation.testagent.TestAgent;
 import eu.mikroskeem.test.shuriken.instrumentation.testagent.TestAgent2;
 import eu.mikroskeem.test.shuriken.instrumentation.testagent.TestAgent3;
+import eu.mikroskeem.test.shuriken.instrumentation.testagent.TestAgent4;
 import eu.mikroskeem.test.shuriken.instrumentation.testclasses.TestTransformable2;
 import eu.mikroskeem.test.shuriken.instrumentation.testclasses.TestTransformable3;
+import eu.mikroskeem.test.shuriken.instrumentation.testclasses.TestTransformable4;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
@@ -80,5 +82,17 @@ public class RuntimeTransformationTester {
         // Mutate again and check if it is incremented by three
         TestTransformable3.incrementFirst(testArray);
         Assertions.assertEquals(4, testArray[0]);
+    }
+
+    @Test
+    public void testRerouting() throws Exception {
+        Assumptions.assumeTrue(agentFactoryWorks, "Agent factory is not working");
+
+        AgentFactory.attachAgent(AgentFactory.newJavaAgent(TestAgent4.class));
+        System.setProperty("shuriken.testagent4", "true");
+
+        TestTransformable4 test = new TestTransformable4();
+        test.testProperty();
+        test.testPrint();
     }
 }

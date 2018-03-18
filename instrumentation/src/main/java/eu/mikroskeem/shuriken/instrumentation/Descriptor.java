@@ -15,6 +15,9 @@ import java.util.stream.Stream;
  * @version 0.0.1
  */
 public final class Descriptor {
+    /** Default method descriptor */
+    public final static String DEFAULT = "()V";
+
     private String accepts = "";
     private String returns = "V";
     private final String finalString = "(%s)%s";
