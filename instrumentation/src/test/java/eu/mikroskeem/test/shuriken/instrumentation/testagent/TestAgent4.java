@@ -61,10 +61,10 @@ public class TestAgent4 implements ClassFileTransformer {
             ClassNode node = readClass(classfileBuffer);
 
             // Try to find target method
-            MethodNode method = findMethodWithAccessAtleast(node.methods, TARGET_A, TARGET_M, TARGET_S);
+            MethodNode method = findMethodWithAccessAtleast(node, TARGET_A, TARGET_M, TARGET_S);
             Ensure.notNull(method, "Could not find target method!");
 
-            MethodNode method2 = findMethodWithAccessAtleast(node.methods, TARGET_A, TARGET_M2, TARGET_S);
+            MethodNode method2 = findMethodWithAccessAtleast(node, TARGET_A, TARGET_M2, TARGET_S);
             Ensure.notNull(method2, "Could not find target method 2!");
 
             // Find method invoke insn
@@ -76,10 +76,10 @@ public class TestAgent4 implements ClassFileTransformer {
             Ensure.notNull(fInsnNode, "Could not find GETSTATIC System.out");
 
             // Reroute method
-            rerouteMethodInvocation(method.instructions, insnNode, TARGET_CL, "getDummyProperties", ROUTE_S, false);
+            rerouteMethodInvocation(method.instructions, insnNode, TARGET_CL, "getDummyProperties", ROUTE_S);
 
             // Reroute field
-            rerouteFieldGetter(method2.instructions, fInsnNode, TARGET_CL, "getDummyStream", ROUTE_F_T_M, false);
+            rerouteFieldGetter(method2.instructions, fInsnNode, TARGET_CL, "getDummyStream", ROUTE_F_T_M);
 
             node.accept(cw);
             return cw.toByteArray();

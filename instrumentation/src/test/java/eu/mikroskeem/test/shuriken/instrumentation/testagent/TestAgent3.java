@@ -45,7 +45,7 @@ public class TestAgent3 implements ClassFileTransformer {
         ClassNode node = readClass(classfileBuffer);
 
         // Try to find target method
-        MethodNode method = findMethod(node.methods, TARGET_A, TARGET_M, TARGET_S);
+        MethodNode method = findMethod(node, TARGET_A, TARGET_M, TARGET_S);
         Ensure.notNull(method, "Could not find target method!");
 
         // Find ICONST_1 instruction (note: very shitty way, but then again since it's only usage so it's fine)
