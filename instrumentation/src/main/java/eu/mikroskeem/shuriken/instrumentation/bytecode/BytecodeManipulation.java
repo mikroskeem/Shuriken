@@ -160,8 +160,6 @@ public final class BytecodeManipulation {
     /**
      * Reroutes method invocation to static method
      *
-     * Note: Rerouteable method must be static as well for now!
-     *
      * @param instructions Instructions list
      * @param methodInsn Method instruction
      * @param owner Reroute method owner class (in internal class name format, like {@code foo/bar/Baz})
@@ -177,15 +175,19 @@ public final class BytecodeManipulation {
         if(!instructions.contains(methodInsn))
             throw new IllegalStateException("Given instructions list does not contain provided instruction!");
 
-        // TODO: :(
-        if(methodInsn.getOpcode() != Opcodes.INVOKESTATIC)
-            throw new IllegalStateException("Only static method invocation rerouting is supported for now!");
-
         Type[] originalDesc = Type.getArgumentTypes(methodInsn.desc);
         Type[] targetDesc = Type.getArgumentTypes(desc);
 
-        if(originalDesc.length != targetDesc.length)
-            throw new IllegalStateException("Target method's parameter count must match with original!");
+        // Do safety checks
+        if(methodInsn.getOpcode() == Opcodes.INVOKESTATIC) {
+            if(originalDesc.length != targetDesc.length)
+                throw new IllegalStateException("Target method's parameter count must match with original!");
+        } else {
+            // TODO: check method's first parameter type
+            if((originalDesc.length + 1) != targetDesc.length)
+                throw new IllegalStateException("Target method's parameter count must be larger by one to store a " +
+                        "target method instance!");
+        }
 
         // TODO: Check original & target descriptor compatibility
         // TODO: Check if target method is accessible
@@ -195,8 +197,6 @@ public final class BytecodeManipulation {
 
     /**
      * Reroutes method invocation to static method
-     *
-     * Note: Rerouteable method must be static as well for now!
      *
      * @param instructions Instructions list
      * @param methodInsn Method instruction
@@ -272,18 +272,20 @@ public final class BytecodeManipulation {
         if(!instructions.contains(fieldInsn))
             throw new IllegalStateException("Given instructions list does not contain provided instruction!");
 
-        // TODO: :(
-        if(fieldInsn.getOpcode() != Opcodes.GETSTATIC)
-            throw new IllegalStateException("Only static field getter rerouting is supported for now!");
-
         if(fieldInsn.getOpcode() != Opcodes.GETSTATIC && fieldInsn.getOpcode() != Opcodes.GETFIELD)
             throw new IllegalStateException("Instruction opcode must be GET or GETSTATIC!");
 
         Type[] methodParams = Type.getArgumentTypes(desc);
         Type methodReturn = Type.getReturnType(desc);
 
-        if(methodParams.length > 0 || methodReturn.equals(Type.VOID_TYPE))
-            throw new IllegalStateException("Target method must not take any arguments and not return void!");
+        if(fieldInsn.getOpcode() == Opcodes.GETSTATIC) {
+            if(!(methodParams.length == 0 && !methodReturn.equals(Type.VOID_TYPE)))
+                throw new IllegalStateException("Target method must not take any arguments and not return void!");
+        } else {
+            if(!(methodParams.length == 1 && !methodReturn.equals(Type.VOID_TYPE)))
+                throw new IllegalStateException("Target method must take two arguments to store target field owner " +
+                        "instance and field content, and must not return void!");
+        }
 
         // TODO: Check target return type compatibility
         // TODO: Check if target method is accessible
@@ -328,18 +330,20 @@ public final class BytecodeManipulation {
         if(!instructions.contains(fieldInsn))
             throw new IllegalStateException("Given instructions list does not contain provided instruction!");
 
-        // TODO: :(
-        if(fieldInsn.getOpcode() != Opcodes.PUTSTATIC)
-            throw new IllegalStateException("Only static field setter rerouting is supported for now!");
-
         if(fieldInsn.getOpcode() != Opcodes.PUTSTATIC && fieldInsn.getOpcode() != Opcodes.PUTFIELD)
             throw new IllegalStateException("Instruction opcode must be PUT or PUTSTATIC!");
 
         Type[] methodParams = Type.getArgumentTypes(desc);
         Type methodReturn = Type.getReturnType(desc);
 
-        if(methodParams.length != 1 || !methodReturn.equals(Type.VOID_TYPE))
-            throw new IllegalStateException("Target method must take exactly one argument and return void!");
+        if(fieldInsn.getOpcode() == Opcodes.PUTSTATIC) {
+            if(!(methodParams.length == 1 && methodReturn.equals(Type.VOID_TYPE)))
+                throw new IllegalStateException("Target method must take exactly one argument and return void!");
+        } else {
+            if(!(methodParams.length == 2 && methodReturn.equals(Type.VOID_TYPE)))
+                throw new IllegalStateException("Target method must take two arguments to store target field owner " +
+                        "instance and field content, and must return void!");
+        }
 
         // TODO: Check target parameter type compatibility
         // TODO: Check if target method is accessible

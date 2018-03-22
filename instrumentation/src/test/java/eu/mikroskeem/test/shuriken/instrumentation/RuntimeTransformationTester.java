@@ -1,19 +1,18 @@
 package eu.mikroskeem.test.shuriken.instrumentation;
 
-import eu.mikroskeem.shuriken.common.function.UncheckedConsumer;
 import eu.mikroskeem.shuriken.instrumentation.runtime.AgentFactory;
-import eu.mikroskeem.shuriken.instrumentation.runtime.AgentJarOutputStream;
 import eu.mikroskeem.test.shuriken.instrumentation.testagent.TestAgent;
 import eu.mikroskeem.test.shuriken.instrumentation.testagent.TestAgent2;
 import eu.mikroskeem.test.shuriken.instrumentation.testagent.TestAgent3;
 import eu.mikroskeem.test.shuriken.instrumentation.testagent.TestAgent4;
+import eu.mikroskeem.test.shuriken.instrumentation.testagent.TestAgent5;
 import eu.mikroskeem.test.shuriken.instrumentation.testclasses.TestTransformable2;
 import eu.mikroskeem.test.shuriken.instrumentation.testclasses.TestTransformable3;
 import eu.mikroskeem.test.shuriken.instrumentation.testclasses.TestTransformable4;
+import eu.mikroskeem.test.shuriken.instrumentation.testclasses.TestTransformable5;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
@@ -94,5 +93,15 @@ public class RuntimeTransformationTester {
         TestTransformable4 test = new TestTransformable4();
         test.testProperty();
         test.testPrint();
+    }
+
+    @Test
+    public void testInstanceRerouting() throws Exception {
+        Assumptions.assumeTrue(agentFactoryWorks, "Agent factory is not working");
+
+        AgentFactory.attachAgent(AgentFactory.newJavaAgent(TestAgent5.class));
+
+        TestTransformable5 test = new TestTransformable5();
+        test.testProperty();
     }
 }
